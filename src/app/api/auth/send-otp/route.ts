@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { getPayload } from 'payload'
 import configPromise from '@payload-config'
+import crypto from 'crypto'
+import { sendOtpSms } from '@/lib/sms'
 
 export async function POST(req: Request) {
   try {
@@ -23,7 +25,7 @@ export async function POST(req: Request) {
     const payload = await getPayload({ config: configPromise })
 
     // Generate real, cryptographically random 6-digit OTP
-    const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString()
+    const generatedOtp = crypto.randomInt(100000, 1000000).toString()
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString() // 5 minutes
 
     // Find existing customer or create new
@@ -58,14 +60,35 @@ export async function POST(req: Request) {
       })
     }
 
-    console.log(`[AUTH] Sent OTP ${generatedOtp} to +91 ${cleanPhone}`)
+    // Read store settings for SMS Gateway credentials
+    let storeSettings: any = null
+    try {
+      storeSettings = (await payload.findGlobal({ slug: 'store-settings' })) as any
+    } catch (e) {
+      console.warn('Could not read store settings for customer SMS dispatch:', e)
+    }
 
-    // In production, when an SMS gateway is configured, trigger SMS here
+    // Dispatch real SMS via configured SMS gateway (Fast2SMS / Twilio)
+    const smsResult = await sendOtpSms({
+      phone: cleanPhone,
+      otp: generatedOtp,
+      settings: storeSettings,
+    })
+
+    if (!smsResult.success) {
+      return NextResponse.json(
+        {
+          error:
+            smsResult.error ||
+            'Failed to dispatch SMS verification code. Please check that SMS service is enabled.',
+        },
+        { status: 400 }
+      )
+    }
+
     return NextResponse.json({
       success: true,
-      message: `OTP sent successfully to +91 ${cleanPhone}`,
-      // In dev mode without SMS gateway, surface devOtp for testing
-      devOtp: process.env.NODE_ENV !== 'production' ? generatedOtp : undefined,
+      message: `Verification code sent via SMS to +91 ${cleanPhone}`,
     })
   } catch (err: any) {
     console.error('Error sending OTP:', err)

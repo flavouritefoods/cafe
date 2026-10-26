@@ -16,7 +16,6 @@ export function LoginClient() {
   const [name, setName] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [devOtp, setDevOtp] = useState<string | null>(null)
   const [resendTimer, setResendTimer] = useState(0)
 
   const startResendTimer = () => {
@@ -35,7 +34,6 @@ export function LoginClient() {
   const handleSendOtp = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()
     setError(null)
-    setDevOtp(null)
 
     const clean = phone.replace(/\D/g, '').slice(-10)
     if (clean.length !== 10 || !/^[6-9]\d{9}$/.test(clean)) {
@@ -54,10 +52,6 @@ export function LoginClient() {
       if (!res.ok) throw new Error(data.error || 'Failed to send OTP')
 
       setStep('otp')
-      if (data.devOtp) {
-        setDevOtp(data.devOtp)
-        setOtp(data.devOtp) // pre-fill in test mode for convenience
-      }
       startResendTimer()
     } catch (err: any) {
       setError(err?.message || 'Network error. Please try again.')
@@ -119,14 +113,6 @@ export function LoginClient() {
         {error && (
           <div className="bg-red-50 text-red-700 text-sm p-3.5 rounded-xl border border-red-200">
             {error}
-          </div>
-        )}
-
-        {/* Test Mode Notification */}
-        {devOtp && (
-          <div className="bg-emerald-50 text-emerald-800 text-xs p-3 rounded-xl border border-emerald-200 flex items-center justify-between">
-            <span>💡 <strong>Test OTP:</strong> {devOtp} (Pre-filled for you)</span>
-            <span className="text-[10px] bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded font-mono font-bold">DEMO</span>
           </div>
         )}
 

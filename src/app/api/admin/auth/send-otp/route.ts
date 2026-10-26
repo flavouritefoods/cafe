@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getPayload } from 'payload'
 import configPromise from '@payload-config'
 import crypto from 'crypto'
+import { sendOtpSms } from '@/lib/sms'
 
 export async function POST(req: Request) {
   try {
@@ -22,17 +23,18 @@ export async function POST(req: Request) {
 
     const payload = await getPayload({ config: configPromise })
 
-    // Read store settings for admin registration policy
+    // Read store settings for admin registration policy and SMS configuration
+    let storeSettings: any = null
     let registrationMode = 'open'
     let whitelistSet = new Set<string>()
 
     try {
-      const settings = (await payload.findGlobal({ slug: 'store-settings' })) as any
-      if (settings?.adminRegistrationMode) {
-        registrationMode = settings.adminRegistrationMode
+      storeSettings = (await payload.findGlobal({ slug: 'store-settings' })) as any
+      if (storeSettings?.adminRegistrationMode) {
+        registrationMode = storeSettings.adminRegistrationMode
       }
-      if (settings?.adminWhitelistPhones) {
-        const numbers = String(settings.adminWhitelistPhones)
+      if (storeSettings?.adminWhitelistPhones) {
+        const numbers = String(storeSettings.adminWhitelistPhones)
           .split(',')
           .map((n) => n.replace(/\D/g, '').slice(-10))
           .filter((n) => n.length === 10)
@@ -59,6 +61,9 @@ export async function POST(req: Request) {
     const generatedOtp = crypto.randomInt(100000, 1000000).toString()
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString() // 5 minutes
 
+    let isNewUser = false
+    let userName = ''
+
     if (existingUsers.docs.length > 0) {
       const user = existingUsers.docs[0] as any
 
@@ -78,50 +83,64 @@ export async function POST(req: Request) {
         },
       })
 
-      return NextResponse.json({
-        success: true,
-        isNewUser: false,
-        userName: user.name,
-        message: `Verification code generated for +91 ${cleanPhone}`,
-        otpCode: generatedOtp,
+      isNewUser = false
+      userName = user.name || ''
+    } else {
+      // User does not exist yet -> Registration Flow
+      if (registrationMode === 'closed' && !isWhitelisted) {
+        return NextResponse.json(
+          {
+            error:
+              'Administrator registration is currently closed. Please contact the store owner to authorize your mobile number.',
+          },
+          { status: 403 }
+        )
+      }
+
+      // Create user record with OTP
+      const generatedPassword = crypto.randomBytes(16).toString('hex')
+      const initialStatus = registrationMode === 'open' || isWhitelisted ? 'approved' : 'pending'
+
+      await payload.create({
+        collection: 'users',
+        data: {
+          name: 'Administrator',
+          phone: cleanPhone,
+          email: `${cleanPhone}@flavouritefood.com`,
+          password: generatedPassword,
+          role: 'admin',
+          status: initialStatus,
+          otp: generatedOtp,
+          otpExpiresAt: expiresAt,
+        },
       })
+
+      isNewUser = true
     }
 
-    // User does not exist yet -> Registration Flow
-    if (registrationMode === 'closed' && !isWhitelisted) {
+    // Dispatch real SMS via configured SMS gateway (Fast2SMS / Twilio)
+    const smsResult = await sendOtpSms({
+      phone: cleanPhone,
+      otp: generatedOtp,
+      settings: storeSettings,
+    })
+
+    if (!smsResult.success) {
       return NextResponse.json(
         {
           error:
-            'Administrator registration is currently closed. Please contact the store owner to authorize your mobile number.',
+            smsResult.error ||
+            'SMS delivery failed. If you have not configured an SMS provider yet, please log in using the Email & Password tab.',
         },
-        { status: 403 }
+        { status: 400 }
       )
     }
 
-    // Create user record with OTP
-    const generatedPassword = crypto.randomBytes(16).toString('hex')
-    const initialStatus = registrationMode === 'open' || isWhitelisted ? 'approved' : 'pending'
-
-    await payload.create({
-      collection: 'users',
-      data: {
-        name: 'Administrator',
-        phone: cleanPhone,
-        email: `${cleanPhone}@flavouritefood.com`,
-        password: generatedPassword,
-        role: 'admin',
-        status: initialStatus,
-        otp: generatedOtp,
-        otpExpiresAt: expiresAt,
-      },
-    })
-
     return NextResponse.json({
       success: true,
-      isNewUser: true,
-      registrationMode,
-      message: `Registration verification code generated for +91 ${cleanPhone}`,
-      otpCode: generatedOtp,
+      isNewUser,
+      userName: isNewUser ? undefined : userName,
+      message: `Verification code sent via SMS to +91 ${cleanPhone}`,
     })
   } catch (err: any) {
     console.error('Error in admin send-otp:', err)

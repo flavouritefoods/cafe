@@ -14,7 +14,6 @@ export function AdminLoginUnifiedClient() {
   const [isNewUser, setIsNewUser] = useState(false)
   const [phoneLoading, setPhoneLoading] = useState(false)
   const [phoneError, setPhoneError] = useState<string | null>(null)
-  const [otpCode, setOtpCode] = useState<string | null>(null)
   const [resendTimer, setResendTimer] = useState(0)
 
   // Email/Password State
@@ -42,7 +41,6 @@ export function AdminLoginUnifiedClient() {
   const handleSendOtp = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()
     setPhoneError(null)
-    setOtpCode(null)
 
     const clean = phone.replace(/\D/g, '').slice(-10)
     if (clean.length !== 10 || !/^[6-9]\d{9}$/.test(clean)) {
@@ -62,9 +60,6 @@ export function AdminLoginUnifiedClient() {
 
       setIsNewUser(Boolean(data.isNewUser))
       setPhoneStep('otp')
-      if (data.otpCode) {
-        setOtpCode(data.otpCode)
-      }
       startResendTimer()
     } catch (err: any) {
       setPhoneError(err?.message || 'Something went wrong. Please try again.')
@@ -495,42 +490,6 @@ export function AdminLoginUnifiedClient() {
                     }}
                     autoFocus
                   />
-                  {otpCode && (
-                    <div
-                      style={{
-                        marginTop: '8px',
-                        padding: '8px 12px',
-                        background: '#ECFDF5',
-                        border: '1px solid #A7F3D0',
-                        borderRadius: '6px',
-                        fontSize: '12px',
-                        color: '#065F46',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                      }}
-                    >
-                      <span>
-                        Verification Code: <strong>{otpCode}</strong>
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setOtp(otpCode)}
-                        style={{
-                          background: '#059669',
-                          color: '#FFFFFF',
-                          border: 'none',
-                          borderRadius: '4px',
-                          padding: '3px 8px',
-                          fontSize: '11px',
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        Fill
-                      </button>
-                    </div>
-                  )}
                 </div>
 
                 <button

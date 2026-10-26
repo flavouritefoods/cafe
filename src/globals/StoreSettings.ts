@@ -235,6 +235,57 @@ export const StoreSettings: GlobalConfig = {
           ],
         },
         {
+          label: '📱 SMS & Mobile OTP Gateway',
+          fields: [
+            {
+              name: 'smsProvider',
+              type: 'select',
+              defaultValue: 'fast2sms',
+              label: 'SMS Service Provider',
+              options: [
+                { label: 'Fast2SMS (Recommended for India — Fast & Instant OTP)', value: 'fast2sms' },
+                { label: 'Twilio (Global & India SMS)', value: 'twilio' },
+                { label: 'Disabled / Inactive', value: 'none' },
+              ],
+              admin: {
+                description: 'Select the SMS gateway used to dispatch real OTP text messages to customer and administrator mobile phones.',
+              },
+            },
+            {
+              name: 'fast2smsApiKey',
+              type: 'text',
+              label: 'Fast2SMS API Key',
+              admin: {
+                description: 'Your Fast2SMS API key (fast2sms.com). Dispatches instant 6-digit OTPs directly to Indian mobile networks.',
+              },
+            },
+            {
+              name: 'twilioAccountSid',
+              type: 'text',
+              label: 'Twilio Account SID (Optional)',
+              admin: {
+                description: 'Twilio Account SID if using Twilio.',
+              },
+            },
+            {
+              name: 'twilioAuthToken',
+              type: 'text',
+              label: 'Twilio Auth Token (Optional)',
+              admin: {
+                description: 'Twilio Auth Token if using Twilio.',
+              },
+            },
+            {
+              name: 'twilioFromNumber',
+              type: 'text',
+              label: 'Twilio From Phone Number (Optional)',
+              admin: {
+                description: 'Twilio sender phone number with country code.',
+              },
+            },
+          ],
+        },
+        {
           label: '🔐 Staff & Admin Access Settings',
           fields: [
             {
