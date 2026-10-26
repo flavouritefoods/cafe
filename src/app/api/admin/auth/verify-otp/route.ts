@@ -8,7 +8,7 @@ export async function POST(req: Request) {
     const { phone, otp, name } = await req.json()
 
     if (!phone || !otp) {
-      return NextResponse.json({ error: 'Mobile number and OTP are required.' }, { status: 400 })
+      return NextResponse.json({ error: 'Mobile number and verification code are required.' }, { status: 400 })
     }
 
     const cleanPhone = phone.replace(/\D/g, '').slice(-10)
@@ -28,29 +28,26 @@ export async function POST(req: Request) {
 
     if (userResult.docs.length === 0) {
       return NextResponse.json(
-        { error: 'No admin account found for this mobile number. Please request a new OTP.' },
+        { error: 'No account found for this mobile number. Please request a new verification code.' },
         { status: 404 }
       )
     }
 
     const user = userResult.docs[0] as any
 
-    // Verify OTP
-    const isTestNumber =
-      cleanPhone === '9876543210' || cleanPhone === '9999999999' || cleanPhone === '7013205977'
-    const isMasterBypass = isTestNumber && cleanOtp === '123456'
+    // Verify OTP against stored code
+    if (!user.otp || user.otp !== cleanOtp) {
+      return NextResponse.json(
+        { error: 'Invalid verification code. Please check and try again.' },
+        { status: 400 }
+      )
+    }
 
-    if (!isMasterBypass) {
-      if (!user.otp || user.otp !== cleanOtp) {
-        return NextResponse.json({ error: 'Invalid OTP code. Please check and try again.' }, { status: 400 })
-      }
-
-      if (user.otpExpiresAt && new Date(user.otpExpiresAt).getTime() < Date.now()) {
-        return NextResponse.json(
-          { error: 'OTP has expired. Please request a fresh one.' },
-          { status: 400 }
-        )
-      }
+    if (user.otpExpiresAt && new Date(user.otpExpiresAt).getTime() < Date.now()) {
+      return NextResponse.json(
+        { error: 'Verification code has expired. Please request a new one.' },
+        { status: 400 }
+      )
     }
 
     // Prepare update data
@@ -75,7 +72,7 @@ export async function POST(req: Request) {
         success: true,
         pendingApproval: true,
         message:
-          'Your admin account has been created successfully! It is now pending approval by the store owner in Staff & Admins.',
+          'Your account has been registered successfully. It is awaiting approval by the store owner in Settings → Staff & Admins.',
         user: {
           id: updatedUser.id,
           name: updatedUser.name,
@@ -87,7 +84,7 @@ export async function POST(req: Request) {
 
     if (updatedUser.status === 'suspended') {
       return NextResponse.json(
-        { error: 'This admin account has been suspended. Please contact the store owner.' },
+        { error: 'This account has been suspended. Please contact the store administrator.' },
         { status: 403 }
       )
     }
@@ -101,7 +98,7 @@ export async function POST(req: Request) {
     const response = NextResponse.json({
       success: true,
       approved: true,
-      message: `Welcome back, ${updatedUser.name}! Logging you into the Admin Dashboard...`,
+      message: `Welcome, ${updatedUser.name}! Logging you into the Admin Dashboard...`,
       user: {
         id: updatedUser.id,
         name: updatedUser.name,

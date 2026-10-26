@@ -3,20 +3,19 @@ import type { CollectionConfig } from 'payload'
 export const Users: CollectionConfig = {
   slug: 'users',
   labels: {
-    singular: '👤 Staff & Admin',
+    singular: '👤 Staff & Administrator',
     plural: '👥 Staff & Admins',
   },
   admin: {
     group: 'Settings',
     useAsTitle: 'name',
     defaultColumns: ['name', 'phone', 'email', 'role', 'status'],
-    description: 'Manage admin logins, kitchen staff, and mobile OTP access.',
+    description: 'Manage staff and administrator accounts, roles, and access approval.',
   },
   access: {
-    // Only approved users can access admin
+    // Only approved users can access the administration dashboard
     admin: ({ req }) => {
       if (!req.user) return false
-      // If status is not set (e.g. legacy user), allow, otherwise check approved
       return !req.user.status || req.user.status === 'approved'
     },
   },
@@ -25,19 +24,19 @@ export const Users: CollectionConfig = {
     {
       name: 'name',
       type: 'text',
-      label: 'Staff / Admin Name',
+      label: 'Full Name',
       required: true,
       admin: {
-        description: 'Name or role of this user (e.g. Mom, Vihari, Bakery Manager)',
+        description: 'Full name of the staff member or administrator.',
       },
     },
     {
       name: 'phone',
       type: 'text',
-      label: 'Mobile Number (10 Digits)',
+      label: 'Mobile Number',
       index: true,
       admin: {
-        description: 'Used for password-free Mobile OTP login at /admin-login.',
+        description: '10-digit mobile number for password-free OTP login.',
       },
     },
     {
@@ -45,11 +44,11 @@ export const Users: CollectionConfig = {
       type: 'select',
       defaultValue: 'admin',
       options: [
-        { label: '👑 Store Admin (Full Access)', value: 'admin' },
-        { label: '👨‍🍳 Kitchen Staff (Orders & Delivery Only)', value: 'staff' },
+        { label: '👑 Administrator (Full Store Access)', value: 'admin' },
+        { label: '👨‍🍳 Staff Member (Orders & Fulfillment Only)', value: 'staff' },
       ],
       admin: {
-        description: 'User permission level.',
+        description: 'Access permissions level for this account.',
       },
     },
     {
@@ -62,7 +61,7 @@ export const Users: CollectionConfig = {
         { label: '🚫 Suspended', value: 'suspended' },
       ],
       admin: {
-        description: 'Only "Approved" users can access the Admin Dashboard.',
+        description: 'Only accounts marked as "Approved" have active access to the administration panel.',
       },
     },
     {

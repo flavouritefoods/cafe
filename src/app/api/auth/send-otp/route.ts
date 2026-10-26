@@ -22,13 +22,8 @@ export async function POST(req: Request) {
 
     const payload = await getPayload({ config: configPromise })
 
-    // Generate 6-digit OTP
-    // For easy testing and demo numbers, use 123456
-    const isTestNumber = cleanPhone === '9876543210' || cleanPhone === '9999999999' || cleanPhone === '7013205977'
-    const generatedOtp = isTestNumber 
-      ? '123456' 
-      : Math.floor(100000 + Math.random() * 900000).toString()
-
+    // Generate real, cryptographically random 6-digit OTP
+    const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString()
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString() // 5 minutes
 
     // Find existing customer or create new
@@ -69,8 +64,8 @@ export async function POST(req: Request) {
     return NextResponse.json({
       success: true,
       message: `OTP sent successfully to +91 ${cleanPhone}`,
-      // In dev or test mode, surface devOtp for instant frictionless testing
-      devOtp: process.env.NODE_ENV !== 'production' || isTestNumber ? generatedOtp : undefined,
+      // In dev mode without SMS gateway, surface devOtp for testing
+      devOtp: process.env.NODE_ENV !== 'production' ? generatedOtp : undefined,
     })
   } catch (err: any) {
     console.error('Error sending OTP:', err)

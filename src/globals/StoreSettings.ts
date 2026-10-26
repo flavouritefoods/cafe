@@ -43,7 +43,7 @@ export const StoreSettings: GlobalConfig = {
                 plural: 'Menu Links',
               },
               admin: {
-                description: 'Manage the top menu tabs. Mom can drag to re-order, rename, or add category links (e.g. Chocolates, Hampers, Brownies, Festive Specials). Leave empty to use standard defaults.',
+                description: 'Manage the top menu navigation tabs. Drag to re-order, rename, or add custom category links (e.g. Chocolates, Gift Hampers, Brownies). Leave empty to use active categories.',
               },
               fields: [
                 {
@@ -235,37 +235,37 @@ export const StoreSettings: GlobalConfig = {
           ],
         },
         {
-          label: '🔐 Admin Phone Access & Registration',
+          label: '🔐 Staff & Admin Access Settings',
           fields: [
             {
               name: 'adminRegistrationMode',
               type: 'select',
               defaultValue: 'open',
-              label: 'Admin Account Registration Mode',
+              label: 'Staff Registration Policy',
               options: [
                 { 
-                  label: '🟢 Open Registration — Anyone with valid OTP can create an admin account (Active for Mom & You now)', 
+                  label: '🟢 Open Registration — Allow new administrators to register with verified mobile OTP', 
                   value: 'open' 
                 },
                 { 
-                  label: '🟡 Require Manual Approval — New admins can register with OTP, but stay pending until approved in Staff & Admins', 
+                  label: '🟡 Require Manual Approval — New registrations remain pending until approved in Staff & Admins', 
                   value: 'require_approval' 
                 },
                 { 
-                  label: '🔒 Closed / Login Only — Only existing / pre-approved admins can log in via OTP', 
+                  label: '🔒 Closed / Login Only — Only pre-existing staff accounts can log in', 
                   value: 'closed' 
                 },
               ],
               admin: {
-                description: 'Set to "Open Registration" now so Mom can create her account. Switch to "Closed / Login Only" or "Require Manual Approval" once both of you have registered.',
+                description: 'Control administrator and staff onboarding. Use "Open Registration" during setup, then switch to "Require Manual Approval" or "Closed" for strict security.',
               },
             },
             {
               name: 'adminWhitelistPhones',
               type: 'text',
-              label: 'Auto-Approved Phone Whitelist (Optional)',
+              label: 'Authorized Mobile Numbers Whitelist (Optional)',
               admin: {
-                description: 'Comma-separated 10-digit mobile numbers that are ALWAYS auto-approved even if registration is closed or requires approval (e.g. 7013205977, 9876543210).',
+                description: 'Comma-separated 10-digit mobile numbers permitted to log in or register regardless of registration mode (e.g. 9876543210).',
               },
             },
           ],

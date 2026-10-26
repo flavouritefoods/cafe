@@ -32,18 +32,13 @@ export async function POST(req: Request) {
 
     const customer = customerResult.docs[0] as any
 
-    // Verify OTP
-    const isTestNumber = cleanPhone === '9876543210' || cleanPhone === '9999999999' || cleanPhone === '7013205977'
-    const isMasterBypass = isTestNumber && cleanOtp === '123456'
+    // Verify OTP against stored OTP
+    if (!customer.otp || customer.otp !== cleanOtp) {
+      return NextResponse.json({ error: 'Invalid OTP code. Please check and try again.' }, { status: 400 })
+    }
 
-    if (!isMasterBypass) {
-      if (!customer.otp || customer.otp !== cleanOtp) {
-        return NextResponse.json({ error: 'Invalid OTP code. Please check and try again.' }, { status: 400 })
-      }
-
-      if (customer.otpExpiresAt && new Date(customer.otpExpiresAt).getTime() < Date.now()) {
-        return NextResponse.json({ error: 'OTP has expired. Please request a fresh one.' }, { status: 400 })
-      }
+    if (customer.otpExpiresAt && new Date(customer.otpExpiresAt).getTime() < Date.now()) {
+      return NextResponse.json({ error: 'OTP has expired. Please request a fresh one.' }, { status: 400 })
     }
 
     // Prepare update data

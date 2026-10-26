@@ -55,9 +55,8 @@ export async function POST(req: Request) {
       limit: 1,
     })
 
-    const isTestNumber =
-      cleanPhone === '9876543210' || cleanPhone === '9999999999' || cleanPhone === '7013205977'
-    const generatedOtp = isTestNumber ? '123456' : Math.floor(100000 + Math.random() * 900000).toString()
+    // Generate real, cryptographically random 6-digit OTP
+    const generatedOtp = crypto.randomInt(100000, 1000000).toString()
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString() // 5 minutes
 
     if (existingUsers.docs.length > 0) {
@@ -65,7 +64,7 @@ export async function POST(req: Request) {
 
       if (user.status === 'suspended') {
         return NextResponse.json(
-          { error: 'This admin account has been suspended. Please contact the store owner.' },
+          { error: 'This account has been suspended. Please contact the store administrator.' },
           { status: 403 }
         )
       }
@@ -79,14 +78,12 @@ export async function POST(req: Request) {
         },
       })
 
-      console.log(`[ADMIN AUTH] Sent login OTP ${generatedOtp} to existing admin +91 ${cleanPhone}`)
-
       return NextResponse.json({
         success: true,
         isNewUser: false,
         userName: user.name,
-        message: `Login OTP sent to +91 ${cleanPhone}`,
-        devOtp: process.env.NODE_ENV !== 'production' || isTestNumber ? generatedOtp : undefined,
+        message: `Verification code generated for +91 ${cleanPhone}`,
+        otpCode: generatedOtp,
       })
     }
 
@@ -95,20 +92,20 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           error:
-            'Admin registration is currently closed. Please contact the store owner to register your mobile number.',
+            'Administrator registration is currently closed. Please contact the store owner to authorize your mobile number.',
         },
         { status: 403 }
       )
     }
 
-    // Create pending user record with OTP
+    // Create user record with OTP
     const generatedPassword = crypto.randomBytes(16).toString('hex')
     const initialStatus = registrationMode === 'open' || isWhitelisted ? 'approved' : 'pending'
 
     await payload.create({
       collection: 'users',
       data: {
-        name: 'New Admin',
+        name: 'Administrator',
         phone: cleanPhone,
         email: `${cleanPhone}@flavouritefood.com`,
         password: generatedPassword,
@@ -119,16 +116,12 @@ export async function POST(req: Request) {
       },
     })
 
-    console.log(
-      `[ADMIN AUTH] Sent registration OTP ${generatedOtp} for new admin +91 ${cleanPhone} (mode: ${registrationMode})`
-    )
-
     return NextResponse.json({
       success: true,
       isNewUser: true,
       registrationMode,
-      message: `Registration OTP sent to +91 ${cleanPhone}`,
-      devOtp: process.env.NODE_ENV !== 'production' || isTestNumber ? generatedOtp : undefined,
+      message: `Registration verification code generated for +91 ${cleanPhone}`,
+      otpCode: generatedOtp,
     })
   } catch (err: any) {
     console.error('Error in admin send-otp:', err)
