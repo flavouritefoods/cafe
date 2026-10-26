@@ -234,6 +234,42 @@ export const StoreSettings: GlobalConfig = {
             { name: 'facebookUrl', type: 'text', admin: { description: 'Facebook page URL' } },
           ],
         },
+        {
+          label: '🔐 Admin Phone Access & Registration',
+          fields: [
+            {
+              name: 'adminRegistrationMode',
+              type: 'select',
+              defaultValue: 'open',
+              label: 'Admin Account Registration Mode',
+              options: [
+                { 
+                  label: '🟢 Open Registration — Anyone with valid OTP can create an admin account (Active for Mom & You now)', 
+                  value: 'open' 
+                },
+                { 
+                  label: '🟡 Require Manual Approval — New admins can register with OTP, but stay pending until approved in Staff & Admins', 
+                  value: 'require_approval' 
+                },
+                { 
+                  label: '🔒 Closed / Login Only — Only existing / pre-approved admins can log in via OTP', 
+                  value: 'closed' 
+                },
+              ],
+              admin: {
+                description: 'Set to "Open Registration" now so Mom can create her account. Switch to "Closed / Login Only" or "Require Manual Approval" once both of you have registered.',
+              },
+            },
+            {
+              name: 'adminWhitelistPhones',
+              type: 'text',
+              label: 'Auto-Approved Phone Whitelist (Optional)',
+              admin: {
+                description: 'Comma-separated 10-digit mobile numbers that are ALWAYS auto-approved even if registration is closed or requires approval (e.g. 7013205977, 9876543210).',
+              },
+            },
+          ],
+        },
       ],
     },
   ],

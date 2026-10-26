@@ -44,6 +44,7 @@ export default buildConfig({
     components: {
       beforeDashboard: ['@/components/admin/BakeryDashboard#BakeryDashboard'],
       beforeNavLinks: ['@/components/admin/AdminNavHeader#AdminNavHeader'],
+      beforeLogin: ['@/components/admin/AdminPhoneLoginBanner#AdminPhoneLoginBanner'],
     },
     livePreview: {
       url: 'http://localhost:3000',

@@ -40,6 +40,32 @@ export async function syncLocalDbToRemote(targetUrl: string, authToken?: string)
     }
   }
 
+  // Check for any newly added columns in existing tables and ALTER TABLE on remote
+  const tableRows = schemaRes.rows.filter((r) => r.type === 'table')
+  for (const table of tableRows) {
+    const tableName = String(table.name)
+    try {
+      const localColsRes = await local.execute(`PRAGMA table_info("${tableName}")`)
+      const remoteColsRes = await target.execute(`PRAGMA table_info("${tableName}")`)
+      const remoteColNames = new Set(remoteColsRes.rows.map((r) => String(r.name)))
+
+      for (const colRow of localColsRes.rows) {
+        const colName = String(colRow.name)
+        if (!remoteColNames.has(colName)) {
+          const colType = String(colRow.type || 'TEXT')
+          try {
+            await target.execute(`ALTER TABLE "${tableName}" ADD COLUMN "${colName}" ${colType}`)
+            console.log(`[SYNC] Added column ${colName} (${colType}) to remote table ${tableName}`)
+          } catch (alterErr: any) {
+            console.warn(`[SYNC] Alter note for ${tableName}.${colName}:`, alterErr?.message)
+          }
+        }
+      }
+    } catch (colErr: any) {
+      console.warn(`[SYNC] Column check note for ${tableName}:`, colErr?.message)
+    }
+  }
+
   // Disable FK constraints during bulk data import
   try {
     await target.execute('PRAGMA foreign_keys = OFF')
@@ -48,7 +74,6 @@ export async function syncLocalDbToRemote(targetUrl: string, authToken?: string)
   const summary: string[] = []
 
   // 2. Copy data for each table
-  const tableRows = schemaRes.rows.filter((r) => r.type === 'table')
   for (const table of tableRows) {
     const tableName = String(table.name)
     try {
