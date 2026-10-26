@@ -3,87 +3,111 @@
 import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowRight, ShieldCheck, Phone, CheckCircle, RefreshCw } from 'lucide-react'
+import { ArrowRight, ShieldCheck, Mail, Lock, User, Phone, CheckCircle } from 'lucide-react'
 
 export function LoginClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirectUrl = searchParams.get('redirect') || '/account'
+  const isFromCheckout = redirectUrl.includes('checkout')
 
-  const [step, setStep] = useState<'phone' | 'otp'>('phone')
-  const [phone, setPhone] = useState('')
-  const [otp, setOtp] = useState('')
-  const [name, setName] = useState('')
+  const [activeTab, setActiveTab] = useState<'signin' | 'register'>('signin')
+
+  // Sign In State
+  const [identifier, setIdentifier] = useState('')
+  const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [resendTimer, setResendTimer] = useState(0)
 
-  const startResendTimer = () => {
-    setResendTimer(30)
-    const interval = setInterval(() => {
-      setResendTimer((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval)
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
-  }
+  // Registration State
+  const [regName, setRegName] = useState('')
+  const [regEmail, setRegEmail] = useState('')
+  const [regPhone, setRegPhone] = useState('')
+  const [regPassword, setRegPassword] = useState('')
 
-  const handleSendOtp = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault()
+  // Handle Customer Sign In
+  const handleSignIn = async (e: React.FormEvent) => {
+    e.preventDefault()
     setError(null)
 
-    const clean = phone.replace(/\D/g, '').slice(-10)
-    if (clean.length !== 10 || !/^[6-9]\d{9}$/.test(clean)) {
-      setError('Please enter a valid 10-digit Indian mobile number.')
+    if (!identifier.trim() || !password) {
+      setError('Please enter your email or mobile number and password.')
       return
     }
 
     setLoading(true)
     try {
-      const res = await fetch('/api/auth/send-otp', {
+      const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: clean }),
+        body: JSON.stringify({
+          identifier: identifier.trim(),
+          password,
+        }),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Failed to send OTP')
 
-      setStep('otp')
-      startResendTimer()
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || 'Sign in failed. Please check your credentials.')
+      }
+
+      router.push(redirectUrl)
+      router.refresh()
     } catch (err: any) {
-      setError(err?.message || 'Network error. Please try again.')
+      setError(err?.message || 'Invalid credentials. Please try again.')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleVerifyOtp = async (e: React.FormEvent) => {
+  // Handle Customer Registration
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
 
-    if (!otp || otp.length < 4) {
-      setError('Please enter the verification code.')
+    if (!regName.trim() || regName.trim().length < 2) {
+      setError('Please enter your full name (at least 2 characters).')
+      return
+    }
+
+    if (!regEmail.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(regEmail)) {
+      setError('Please enter a valid email address.')
+      return
+    }
+
+    const cleanPhone = regPhone.replace(/\D/g, '').slice(-10)
+    if (!cleanPhone || cleanPhone.length !== 10 || !/^[6-9]\d{9}$/.test(cleanPhone)) {
+      setError('Please enter a valid 10-digit Indian mobile number for delivery coordination.')
+      return
+    }
+
+    if (!regPassword || regPassword.length < 6) {
+      setError('Password must be at least 6 characters long.')
       return
     }
 
     setLoading(true)
     try {
-      const res = await fetch('/api/auth/verify-otp', {
+      const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, otp, name }),
+        body: JSON.stringify({
+          name: regName.trim(),
+          email: regEmail.trim(),
+          phone: cleanPhone,
+          password: regPassword,
+        }),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Verification failed')
 
-      // Successfully authenticated
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || 'Registration failed. Please try again.')
+      }
+
       router.push(redirectUrl)
       router.refresh()
     } catch (err: any) {
-      setError(err?.message || 'Verification failed. Please try again.')
+      setError(err?.message || 'Registration failed. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -100,138 +124,215 @@ export function LoginClient() {
             <span className="text-2xl font-serif font-bold text-brand-dark">Flavourite</span>
           </Link>
           <h2 className="text-xl font-bold text-gray-900">
-            {step === 'phone' ? 'Log in or Sign up' : 'Verify Mobile Number'}
+            {activeTab === 'signin' ? 'Welcome Back' : 'Create Customer Account'}
           </h2>
           <p className="text-sm text-gray-500 mt-1">
-            {step === 'phone'
-              ? 'Enter your mobile number to view orders and saved addresses'
-              : `Enter the 6-digit code sent to +91 ${phone}`}
+            {activeTab === 'signin'
+              ? 'Sign in to access your saved addresses and track orders'
+              : 'Sign up for fast checkout and order tracking'}
           </p>
+        </div>
+
+        {/* Tab Switcher */}
+        <div className="flex bg-gray-100 p-1 rounded-2xl">
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('signin')
+              setError(null)
+            }}
+            className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all ${
+              activeTab === 'signin'
+                ? 'bg-white text-brand-dark shadow-sm'
+                : 'text-gray-500 hover:text-gray-900'
+            }`}
+          >
+            Sign In
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('register')
+              setError(null)
+            }}
+            className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all ${
+              activeTab === 'register'
+                ? 'bg-white text-brand-dark shadow-sm'
+                : 'text-gray-500 hover:text-gray-900'
+            }`}
+          >
+            Create Account
+          </button>
         </div>
 
         {/* Error Alert */}
         {error && (
-          <div className="bg-red-50 text-red-700 text-sm p-3.5 rounded-xl border border-red-200">
+          <div className="bg-red-50 text-red-700 text-xs p-3.5 rounded-xl border border-red-200 leading-relaxed">
             {error}
           </div>
         )}
 
-        {/* STEP 1: Phone Input */}
-        {step === 'phone' && (
-          <form onSubmit={handleSendOtp} className="space-y-5">
+        {/* SIGN IN FORM */}
+        {activeTab === 'signin' && (
+          <form onSubmit={handleSignIn} className="space-y-4">
             <div>
-              <label htmlFor="phone" className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">
-                Mobile Number
+              <label htmlFor="login-identifier" className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
+                Email Address or Mobile Number
               </label>
-              <div className="relative flex rounded-xl border border-gray-300 focus-within:ring-2 focus-within:ring-brand-dark focus-within:border-brand-dark overflow-hidden bg-white">
-                <span className="inline-flex items-center px-4 bg-gray-50 border-r border-gray-200 text-gray-700 font-semibold text-sm">
-                  🇮🇳 +91
-                </span>
+              <div className="relative flex items-center">
                 <input
-                  id="phone"
-                  type="tel"
-                  maxLength={10}
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
-                  placeholder="98765 43210"
-                  className="w-full px-4 py-3.5 text-base tracking-wider focus:outline-none"
-                  autoFocus
+                  id="login-identifier"
+                  type="text"
                   required
+                  autoComplete="username"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  placeholder="name@gmail.com or 9876543210"
+                  className="w-full px-4 py-3 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-dark focus:border-brand-dark focus:outline-none"
+                  autoFocus
                 />
               </div>
             </div>
 
+            <div>
+              <label htmlFor="login-password" className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
+                Password
+              </label>
+              <input
+                id="login-password"
+                type="password"
+                required
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••••••"
+                className="w-full px-4 py-3 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-dark focus:border-brand-dark focus:outline-none"
+              />
+            </div>
+
             <button
               type="submit"
-              disabled={loading || phone.length < 10}
-              className="w-full bg-brand-dark hover:bg-brand-medium text-white font-semibold py-3.5 px-4 rounded-xl shadow-sm transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-base cursor-pointer"
+              disabled={loading || !identifier.trim() || !password}
+              className="w-full bg-brand-dark hover:bg-brand-medium text-white font-semibold py-3.5 px-4 rounded-xl shadow-sm transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm cursor-pointer mt-2"
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : (
                 <>
-                  <span>Continue with OTP</span>
-                  <ArrowRight size={18} />
+                  <span>Sign In</span>
+                  <ArrowRight size={16} />
                 </>
               )}
             </button>
-
-            <div className="bg-gray-50 p-3.5 rounded-xl text-xs text-gray-500 border border-gray-100 flex items-center gap-2">
-              <ShieldCheck size={20} className="text-brand-dark shrink-0" />
-              <span>We never share your phone number. Instant OTP, no password required.</span>
-            </div>
           </form>
         )}
 
-        {/* STEP 2: OTP Verification */}
-        {step === 'otp' && (
-          <form onSubmit={handleVerifyOtp} className="space-y-5">
+        {/* CREATE ACCOUNT FORM */}
+        {activeTab === 'register' && (
+          <form onSubmit={handleRegister} className="space-y-3.5">
             <div>
-              <label htmlFor="otp" className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">
-                6-Digit Verification Code
+              <label htmlFor="reg-name" className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
+                Full Name
               </label>
               <input
-                id="otp"
+                id="reg-name"
                 type="text"
-                maxLength={6}
-                value={otp}
-                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                placeholder="123456"
-                className="w-full px-4 py-3.5 text-center text-2xl tracking-[0.4em] font-mono border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-dark focus:border-brand-dark focus:outline-none"
-                autoFocus
                 required
+                value={regName}
+                onChange={(e) => setRegName(e.target.value)}
+                placeholder="e.g. Priya Sharma"
+                className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-dark focus:border-brand-dark focus:outline-none"
+                autoFocus
               />
             </div>
 
             <div>
-              <label htmlFor="name" className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
-                Your Name <span className="text-gray-400 font-normal lowercase">(optional)</span>
+              <label htmlFor="reg-email" className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
+                Email Address
               </label>
               <input
-                id="name"
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Priya Sharma"
+                id="reg-email"
+                type="email"
+                required
+                value={regEmail}
+                onChange={(e) => setRegEmail(e.target.value)}
+                placeholder="e.g. priya@gmail.com"
+                className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-dark focus:border-brand-dark focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="reg-phone" className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
+                Mobile Number <span className="text-gray-400 font-normal lowercase">(for delivery)</span>
+              </label>
+              <div className="flex rounded-xl border border-gray-300 focus-within:ring-2 focus-within:ring-brand-dark focus-within:border-brand-dark overflow-hidden bg-white">
+                <span className="inline-flex items-center px-3.5 bg-gray-50 border-r border-gray-200 text-gray-600 font-semibold text-xs">
+                  🇮🇳 +91
+                </span>
+                <input
+                  id="reg-phone"
+                  type="tel"
+                  maxLength={10}
+                  required
+                  value={regPhone}
+                  onChange={(e) => setRegPhone(e.target.value.replace(/\D/g, ''))}
+                  placeholder="9876543210"
+                  className="w-full px-3.5 py-2.5 text-sm focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="reg-password" className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
+                Password <span className="text-gray-400 font-normal lowercase">(min 6 chars)</span>
+              </label>
+              <input
+                id="reg-password"
+                type="password"
+                required
+                minLength={6}
+                value={regPassword}
+                onChange={(e) => setRegPassword(e.target.value)}
+                placeholder="••••••••••••"
                 className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-dark focus:border-brand-dark focus:outline-none"
               />
             </div>
 
             <button
               type="submit"
-              disabled={loading || otp.length < 4}
-              className="w-full bg-brand-dark hover:bg-brand-medium text-white font-semibold py-3.5 px-4 rounded-xl shadow-sm transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-base cursor-pointer"
+              disabled={loading || !regName || !regEmail || regPhone.length < 10 || regPassword.length < 6}
+              className="w-full bg-brand-dark hover:bg-brand-medium text-white font-semibold py-3.5 px-4 rounded-xl shadow-sm transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm cursor-pointer mt-2"
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : (
                 <>
-                  <CheckCircle size={18} />
-                  <span>Verify & Log In</span>
+                  <span>Create Account</span>
+                  <CheckCircle size={16} />
                 </>
               )}
             </button>
-
-            <div className="flex items-center justify-between text-xs text-gray-500 pt-1">
-              <button
-                type="button"
-                onClick={() => setStep('phone')}
-                className="text-brand-dark hover:underline font-medium"
-              >
-                ← Change Phone
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleSendOtp()}
-                disabled={resendTimer > 0 || loading}
-                className="text-brand-dark hover:underline font-medium disabled:opacity-40 disabled:no-underline"
-              >
-                {resendTimer > 0 ? `Resend OTP in ${resendTimer}s` : 'Resend Code'}
-              </button>
-            </div>
           </form>
         )}
+
+        {/* Guest Checkout Alternative (if coming from cart/checkout) */}
+        {isFromCheckout && (
+          <div className="pt-3 border-t border-gray-100 text-center">
+            <Link
+              href="/checkout"
+              className="inline-flex items-center gap-1.5 text-xs text-brand-dark hover:underline font-semibold"
+            >
+              <span>Or proceed to Checkout as Guest</span>
+              <ArrowRight size={14} />
+            </Link>
+          </div>
+        )}
+
+        {/* Security badge */}
+        <div className="bg-gray-50 p-3 rounded-xl text-xs text-gray-500 border border-gray-100 flex items-center gap-2.5">
+          <ShieldCheck size={18} className="text-brand-dark shrink-0" />
+          <span>Your details and passwords are cryptographically secured.</span>
+        </div>
 
       </div>
     </div>

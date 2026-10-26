@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
+import { clearCustomerCookie } from '@/lib/customerAuth'
 
 export async function POST() {
   const response = NextResponse.json({ success: true, message: 'Logged out successfully' })
-  response.cookies.delete('flavourite_customer_session')
+  clearCustomerCookie(response)
   return response
 }

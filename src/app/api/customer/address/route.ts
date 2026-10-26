@@ -3,6 +3,32 @@ import { getPayload } from 'payload'
 import configPromise from '@payload-config'
 import { getSessionCustomer } from '@/lib/customerAuth'
 
+async function findSessionCustomer(payload: any, session: any) {
+  if (session.id) {
+    try {
+      const c = await payload.findByID({ collection: 'customers', id: session.id })
+      if (c) return c
+    } catch {}
+  }
+  if (session.email) {
+    const byEmail = await payload.find({
+      collection: 'customers',
+      where: { email: { equals: session.email } },
+      limit: 1,
+    })
+    if (byEmail.docs.length > 0) return byEmail.docs[0]
+  }
+  if (session.phone) {
+    const byPhone = await payload.find({
+      collection: 'customers',
+      where: { phone: { equals: session.phone } },
+      limit: 1,
+    })
+    if (byPhone.docs.length > 0) return byPhone.docs[0]
+  }
+  return null
+}
+
 export async function POST(req: Request) {
   try {
     const session = await getSessionCustomer()
@@ -18,22 +44,12 @@ export async function POST(req: Request) {
     }
 
     const payload = await getPayload({ config: configPromise })
+    const customer = await findSessionCustomer(payload, session)
 
-    const customerResult = await payload.find({
-      collection: 'customers',
-      where: {
-        phone: {
-          equals: session.phone,
-        },
-      },
-      limit: 1,
-    })
-
-    if (customerResult.docs.length === 0) {
+    if (!customer) {
       return NextResponse.json({ error: 'Customer not found.' }, { status: 404 })
     }
 
-    const customer = customerResult.docs[0] as any
     const existingAddresses = customer.addresses || []
 
     const newAddress = {
@@ -87,35 +103,26 @@ export async function DELETE(req: Request) {
     }
 
     const payload = await getPayload({ config: configPromise })
+    const customer = await findSessionCustomer(payload, session)
 
-    const customerResult = await payload.find({
-      collection: 'customers',
-      where: {
-        phone: {
-          equals: session.phone,
-        },
-      },
-      limit: 1,
-    })
-
-    if (customerResult.docs.length === 0) {
+    if (!customer) {
       return NextResponse.json({ error: 'Customer not found.' }, { status: 404 })
     }
 
-    const customer = customerResult.docs[0] as any
-    const filteredAddresses = (customer.addresses || []).filter((a: any) => a.id !== addressId)
+    const existingAddresses = customer.addresses || []
+    const updatedAddresses = existingAddresses.filter((a: any) => a.id !== addressId)
 
     const updatedCustomer = await payload.update({
       collection: 'customers',
       id: customer.id,
       data: {
-        addresses: filteredAddresses,
+        addresses: updatedAddresses,
       },
     })
 
     return NextResponse.json({
       success: true,
-      message: 'Address deleted.',
+      message: 'Address deleted successfully.',
       addresses: updatedCustomer.addresses || [],
     })
   } catch (err: any) {

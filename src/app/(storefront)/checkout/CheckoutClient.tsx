@@ -355,7 +355,7 @@ export default function CheckoutClient({ settings }: { settings: any }) {
                       <MapPin size={16} className="text-brand-dark" />
                       <span>Deliver to Saved Address</span>
                     </h3>
-                    <span className="text-xs text-gray-400">Logged in (+91 {customer.phone})</span>
+                    <span className="text-xs text-gray-400">Logged in ({customer.name || customer.email || `+91 ${customer.phone}`})</span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {customer.addresses.map((addr: any) => (

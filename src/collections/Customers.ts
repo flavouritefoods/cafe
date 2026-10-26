@@ -137,5 +137,19 @@ export const Customers: CollectionConfig = {
         description: 'Customer mobile number verified via OTP.',
       },
     },
+    {
+      name: 'passwordHash',
+      type: 'text',
+      admin: {
+        hidden: true,
+      },
+    },
+    {
+      name: 'passwordSalt',
+      type: 'text',
+      admin: {
+        hidden: true,
+      },
+    },
   ],
 }

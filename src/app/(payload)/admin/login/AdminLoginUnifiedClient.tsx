@@ -4,105 +4,56 @@ import React, { useState } from 'react'
 import Link from 'next/link'
 
 export function AdminLoginUnifiedClient() {
-  const [activeTab, setActiveTab] = useState<'phone' | 'email'>('phone')
+  const [activeTab, setActiveTab] = useState<'signin' | 'register'>('signin')
 
-  // Phone OTP State
-  const [phoneStep, setPhoneStep] = useState<'phone' | 'otp' | 'pending'>('phone')
-  const [phone, setPhone] = useState('')
-  const [otp, setOtp] = useState('')
-  const [name, setName] = useState('')
-  const [isNewUser, setIsNewUser] = useState(false)
-  const [phoneLoading, setPhoneLoading] = useState(false)
-  const [phoneError, setPhoneError] = useState<string | null>(null)
-  const [resendTimer, setResendTimer] = useState(0)
+  // Sign In State
+  const [loginEmail, setLoginEmail] = useState('')
+  const [loginPassword, setLoginPassword] = useState('')
+  const [loginLoading, setLoginLoading] = useState(false)
+  const [loginError, setLoginError] = useState<string | null>(null)
+  const [isPendingLogin, setIsPendingLogin] = useState(false)
 
-  // Email/Password State
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [emailLoading, setEmailLoading] = useState(false)
-  const [emailError, setEmailError] = useState<string | null>(null)
+  // Registration State
+  const [regName, setRegName] = useState('')
+  const [regEmail, setRegEmail] = useState('')
+  const [regPassword, setRegPassword] = useState('')
+  const [regPhone, setRegPhone] = useState('')
+  const [regRole, setRegRole] = useState<'staff' | 'admin'>('staff')
+  const [regLoading, setRegLoading] = useState(false)
+  const [regError, setRegError] = useState<string | null>(null)
+  const [regSuccess, setRegSuccess] = useState(false)
 
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
 
-  const startResendTimer = () => {
-    setResendTimer(30)
-    const interval = setInterval(() => {
-      setResendTimer((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval)
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
-  }
-
-  // Handle Phone OTP Send
-  const handleSendOtp = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault()
-    setPhoneError(null)
-
-    const clean = phone.replace(/\D/g, '').slice(-10)
-    if (clean.length !== 10 || !/^[6-9]\d{9}$/.test(clean)) {
-      setPhoneError('Please enter a valid 10-digit Indian mobile number.')
-      return
-    }
-
-    setPhoneLoading(true)
-    try {
-      const res = await fetch('/api/admin/auth/send-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: clean }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Failed to send verification code')
-
-      setIsNewUser(Boolean(data.isNewUser))
-      setPhoneStep('otp')
-      startResendTimer()
-    } catch (err: any) {
-      setPhoneError(err?.message || 'Something went wrong. Please try again.')
-    } finally {
-      setPhoneLoading(false)
-    }
-  }
-
-  // Handle Phone OTP Verify
-  const handleVerifyOtp = async (e: React.FormEvent) => {
+  // Handle Admin Sign In
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
-    setPhoneError(null)
+    setLoginError(null)
+    setIsPendingLogin(false)
 
-    const clean = phone.replace(/\D/g, '').slice(-10)
-    const cleanOtp = otp.trim()
-
-    if (cleanOtp.length !== 6) {
-      setPhoneError('Please enter the 6-digit verification code.')
+    if (!loginEmail || !loginPassword) {
+      setLoginError('Please enter both your email and password.')
       return
     }
 
-    if (isNewUser && (!name || name.trim().length === 0)) {
-      setPhoneError('Please enter your full name.')
-      return
-    }
-
-    setPhoneLoading(true)
+    setLoginLoading(true)
     try {
-      const res = await fetch('/api/admin/auth/verify-otp', {
+      const res = await fetch('/api/admin/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          phone: clean,
-          otp: cleanOtp,
-          name: name.trim() || undefined,
+          email: loginEmail.trim(),
+          password: loginPassword,
         }),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Verification failed')
 
-      if (data.pendingApproval) {
-        setPhoneStep('pending')
-        return
+      const data = await res.json()
+
+      if (!res.ok) {
+        if (data.pendingApproval) {
+          setIsPendingLogin(true)
+        }
+        throw new Error(data.error || 'Failed to sign in. Please verify your credentials.')
       }
 
       setSuccessMsg(data.message || 'Authentication successful. Opening dashboard...')
@@ -110,43 +61,57 @@ export function AdminLoginUnifiedClient() {
         window.location.href = '/admin'
       }, 600)
     } catch (err: any) {
-      setPhoneError(err?.message || 'Verification failed. Please check the code.')
+      setLoginError(err?.message || 'Invalid credentials. Please try again.')
     } finally {
-      setPhoneLoading(false)
+      setLoginLoading(false)
     }
   }
 
-  // Handle Standard Email/Password Login
-  const handleEmailLogin = async (e: React.FormEvent) => {
+  // Handle Admin / Staff Registration
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
-    setEmailError(null)
+    setRegError(null)
 
-    if (!email || !password) {
-      setEmailError('Please enter both email and password.')
+    if (!regName.trim() || regName.trim().length < 2) {
+      setRegError('Please enter your full name (at least 2 characters).')
       return
     }
 
-    setEmailLoading(true)
+    if (!regEmail.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(regEmail)) {
+      setRegError('Please enter a valid email address.')
+      return
+    }
+
+    if (!regPassword || regPassword.length < 8) {
+      setRegError('Password must be at least 8 characters long.')
+      return
+    }
+
+    setRegLoading(true)
     try {
-      const res = await fetch('/api/users/login', {
+      const res = await fetch('/api/admin/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), password }),
+        body: JSON.stringify({
+          name: regName.trim(),
+          email: regEmail.trim(),
+          password: regPassword,
+          phone: regPhone.trim() || undefined,
+          role: regRole,
+        }),
       })
+
       const data = await res.json()
+
       if (!res.ok) {
-        const msg = data.errors?.[0]?.message || data.error || 'Invalid email or password.'
-        throw new Error(msg)
+        throw new Error(data.error || 'Failed to create account. Please try again.')
       }
 
-      setSuccessMsg('Login successful. Opening dashboard...')
-      setTimeout(() => {
-        window.location.href = '/admin'
-      }, 600)
+      setRegSuccess(true)
     } catch (err: any) {
-      setEmailError(err?.message || 'Invalid credentials. Please try again.')
+      setRegError(err?.message || 'Registration failed. Please try again.')
     } finally {
-      setEmailLoading(false)
+      setRegLoading(false)
     }
   }
 
@@ -165,18 +130,18 @@ export function AdminLoginUnifiedClient() {
       <div
         style={{
           width: '100%',
-          maxWidth: '420px',
+          maxWidth: '440px',
           background: 'var(--theme-elevation-0, #FFFFFF)',
           border: '1px solid var(--theme-elevation-150, #E5E7EB)',
           borderRadius: '16px',
-          boxShadow: '0 4px 20px -2px rgba(0, 0, 0, 0.05)',
+          boxShadow: '0 4px 24px -2px rgba(0, 0, 0, 0.06)',
           padding: '32px 28px',
         }}
       >
         {/* Brand Header */}
         <div style={{ textAlign: 'center', marginBottom: '24px' }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-            <span style={{ fontSize: '32px' }}>🌿</span>
+            <span style={{ fontSize: '30px' }}>🌿</span>
             <span
               style={{
                 fontSize: '26px',
@@ -196,32 +161,32 @@ export function AdminLoginUnifiedClient() {
               letterSpacing: '2px',
               fontWeight: 700,
               color: '#15803D',
-              marginBottom: '8px',
+              marginBottom: '6px',
             }}
           >
-            Cafe & Bakery • Admin Portal
+            Bakery & Cafe • Administration Portal
           </div>
-          <p style={{ fontSize: '13px', color: 'var(--theme-elevation-600, #6B7280)', margin: 0 }}>
-            Sign in to manage orders, products, and store settings.
+          <p style={{ margin: 0, fontSize: '13px', color: 'var(--theme-elevation-600, #6B7280)' }}>
+            Authorized staff and administrator management system
           </p>
         </div>
 
-        {/* Success Alert */}
+        {/* Success Global Message */}
         {successMsg && (
           <div
             style={{
               padding: '12px 14px',
               borderRadius: '8px',
-              background: '#F0FDF4',
-              border: '1px solid #BBF7D0',
-              color: '#15803D',
+              background: '#ECFDF5',
+              border: '1px solid #A7F3D0',
+              color: '#065F46',
               fontSize: '13px',
-              marginBottom: '16px',
               fontWeight: 600,
+              marginBottom: '20px',
               textAlign: 'center',
             }}
           >
-            ✓ {successMsg}
+            {successMsg}
           </div>
         )}
 
@@ -230,129 +195,277 @@ export function AdminLoginUnifiedClient() {
           style={{
             display: 'flex',
             background: 'var(--theme-elevation-100, #F3F4F6)',
-            padding: '4px',
             borderRadius: '10px',
-            marginBottom: '22px',
-            gap: '4px',
+            padding: '4px',
+            marginBottom: '24px',
           }}
         >
           <button
             type="button"
             onClick={() => {
-              setActiveTab('phone')
-              setPhoneError(null)
+              setActiveTab('signin')
+              setLoginError(null)
+              setIsPendingLogin(false)
             }}
             style={{
               flex: 1,
               padding: '9px 12px',
               fontSize: '13px',
-              fontWeight: 600,
-              borderRadius: '7px',
+              fontWeight: 700,
               border: 'none',
+              borderRadius: '7px',
               cursor: 'pointer',
+              background: activeTab === 'signin' ? 'var(--theme-elevation-0, #FFFFFF)' : 'transparent',
+              color: activeTab === 'signin' ? '#15803D' : 'var(--theme-elevation-700, #4B5563)',
+              boxShadow: activeTab === 'signin' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
               transition: 'all 0.15s ease',
-              background: activeTab === 'phone' ? 'var(--theme-elevation-0, #FFFFFF)' : 'transparent',
-              color:
-                activeTab === 'phone'
-                  ? 'var(--theme-elevation-1000, #111827)'
-                  : 'var(--theme-elevation-600, #6B7280)',
-              boxShadow: activeTab === 'phone' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
             }}
           >
-            📱 Mobile OTP
+            🔐 Sign In
           </button>
           <button
             type="button"
             onClick={() => {
-              setActiveTab('email')
-              setEmailError(null)
+              setActiveTab('register')
+              setRegError(null)
+              setRegSuccess(false)
             }}
             style={{
               flex: 1,
               padding: '9px 12px',
               fontSize: '13px',
-              fontWeight: 600,
-              borderRadius: '7px',
+              fontWeight: 700,
               border: 'none',
+              borderRadius: '7px',
               cursor: 'pointer',
+              background: activeTab === 'register' ? 'var(--theme-elevation-0, #FFFFFF)' : 'transparent',
+              color: activeTab === 'register' ? '#15803D' : 'var(--theme-elevation-700, #4B5563)',
+              boxShadow: activeTab === 'register' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
               transition: 'all 0.15s ease',
-              background: activeTab === 'email' ? 'var(--theme-elevation-0, #FFFFFF)' : 'transparent',
-              color:
-                activeTab === 'email'
-                  ? 'var(--theme-elevation-1000, #111827)'
-                  : 'var(--theme-elevation-600, #6B7280)',
-              boxShadow: activeTab === 'email' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
             }}
           >
-            ✉️ Email & Password
+            ✨ Create Account
           </button>
         </div>
 
-        {/* TAB 1: Mobile OTP Login */}
-        {activeTab === 'phone' && (
+        {/* TAB 1: SIGN IN */}
+        {activeTab === 'signin' && (
           <div>
-            {phoneError && (
+            {loginError && (
               <div
                 style={{
                   padding: '12px 14px',
                   borderRadius: '8px',
-                  background: '#FEF2F2',
-                  border: '1px solid #FECACA',
-                  color: '#B91C1C',
+                  background: isPendingLogin ? '#FFFBEB' : '#FEF2F2',
+                  border: isPendingLogin ? '1px solid #FDE68A' : '1px solid #FECACA',
+                  color: isPendingLogin ? '#92400E' : '#B91C1C',
                   fontSize: '13px',
                   marginBottom: '16px',
-                  lineHeight: 1.4,
+                  lineHeight: 1.45,
                 }}
               >
-                {phoneError}
+                {loginError}
               </div>
             )}
 
-            {phoneStep === 'phone' && (
-              <form onSubmit={handleSendOtp} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <div>
-                  <label
-                    htmlFor="admin-phone"
+            <form onSubmit={handleSignIn} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <label
+                  htmlFor="admin-email"
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    marginBottom: '6px',
+                    color: 'var(--theme-elevation-800, #374151)',
+                  }}
+                >
+                  Email Address
+                </label>
+                <input
+                  id="admin-email"
+                  type="email"
+                  required
+                  autoComplete="email"
+                  placeholder="e.g. gvihari8@gmail.com"
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '11px 14px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--theme-elevation-250, #D1D5DB)',
+                    fontSize: '14px',
+                    outline: 'none',
+                    background: 'var(--theme-elevation-0, #FFFFFF)',
+                    color: 'var(--theme-elevation-1000, #111827)',
+                  }}
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="admin-password"
+                  style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    marginBottom: '6px',
+                    color: 'var(--theme-elevation-800, #374151)',
+                  }}
+                >
+                  Password
+                </label>
+                <input
+                  id="admin-password"
+                  type="password"
+                  required
+                  autoComplete="current-password"
+                  placeholder="••••••••••••"
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '11px 14px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--theme-elevation-250, #D1D5DB)',
+                    fontSize: '14px',
+                    outline: 'none',
+                    background: 'var(--theme-elevation-0, #FFFFFF)',
+                    color: 'var(--theme-elevation-1000, #111827)',
+                  }}
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loginLoading || !loginEmail || !loginPassword}
+                style={{
+                  marginTop: '4px',
+                  padding: '12px 16px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: '#15803D',
+                  color: '#FFFFFF',
+                  fontWeight: 700,
+                  fontSize: '14px',
+                  cursor: loginLoading || !loginEmail || !loginPassword ? 'not-allowed' : 'pointer',
+                  opacity: loginLoading || !loginEmail || !loginPassword ? 0.6 : 1,
+                  transition: 'background 0.15s ease',
+                }}
+              >
+                {loginLoading ? 'Signing in...' : 'Sign In to Dashboard →'}
+              </button>
+            </form>
+          </div>
+        )}
+
+        {/* TAB 2: CREATE ACCOUNT (WITH APPROVAL FLOW) */}
+        {activeTab === 'register' && (
+          <div>
+            {regSuccess ? (
+              <div
+                style={{
+                  padding: '20px 16px',
+                  borderRadius: '12px',
+                  background: '#ECFDF5',
+                  border: '1px solid #A7F3D0',
+                  color: '#065F46',
+                  textAlign: 'center',
+                }}
+              >
+                <div style={{ fontSize: '32px', marginBottom: '8px' }}>⏳</div>
+                <h3 style={{ margin: '0 0 8px 0', fontSize: '16px', fontWeight: 700 }}>
+                  Account Created & Pending Approval
+                </h3>
+                <p style={{ margin: '0 0 16px 0', fontSize: '13px', color: '#047857', lineHeight: 1.5 }}>
+                  Your account <strong>{regEmail}</strong> has been registered successfully.
+                  <br /><br />
+                  For security, an existing store administrator must approve your account under <strong>Settings → Staff & Admins</strong> before you can log in.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('signin')
+                    setLoginEmail(regEmail)
+                    setRegSuccess(false)
+                  }}
+                  style={{
+                    padding: '9px 18px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: '#059669',
+                    color: '#FFFFFF',
+                    fontWeight: 600,
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Go to Sign In →
+                </button>
+              </div>
+            ) : (
+              <div>
+                <div
+                  style={{
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    background: '#FEF3C7',
+                    border: '1px solid #FCD34D',
+                    color: '#92400E',
+                    fontSize: '12px',
+                    lineHeight: 1.4,
+                    marginBottom: '16px',
+                  }}
+                >
+                  🛡️ <strong>Approval Required:</strong> New accounts are created with <em>Pending</em> status and must be verified by an existing administrator before accessing store data.
+                </div>
+
+                {regError && (
+                  <div
                     style={{
-                      display: 'block',
-                      fontSize: '13px',
-                      fontWeight: 600,
-                      marginBottom: '6px',
-                      color: 'var(--theme-elevation-800, #374151)',
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      background: '#FEF2F2',
+                      border: '1px solid #FECACA',
+                      color: '#B91C1C',
+                      fontSize: '12px',
+                      marginBottom: '16px',
+                      lineHeight: 1.4,
                     }}
                   >
-                    Mobile Number
-                  </label>
-                  <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <span
+                    {regError}
+                  </div>
+                )}
+
+                <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div>
+                    <label
+                      htmlFor="reg-name"
                       style={{
-                        padding: '11px 12px',
-                        background: 'var(--theme-elevation-100, #F3F4F6)',
-                        border: '1px solid var(--theme-elevation-250, #D1D5DB)',
-                        borderRight: 'none',
-                        borderRadius: '8px 0 0 8px',
-                        fontSize: '13px',
+                        display: 'block',
+                        fontSize: '12px',
                         fontWeight: 600,
-                        color: 'var(--theme-elevation-700, #4B5563)',
+                        marginBottom: '4px',
+                        color: 'var(--theme-elevation-800, #374151)',
                       }}
                     >
-                      🇮🇳 +91
-                    </span>
+                      Full Name
+                    </label>
                     <input
-                      id="admin-phone"
-                      type="tel"
-                      inputMode="numeric"
+                      id="reg-name"
+                      type="text"
                       required
-                      maxLength={10}
-                      placeholder="9876543210"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+                      placeholder="e.g. Priya Sharma"
+                      value={regName}
+                      onChange={(e) => setRegName(e.target.value)}
                       style={{
-                        flex: 1,
-                        padding: '11px 14px',
-                        borderRadius: '0 8px 8px 0',
+                        width: '100%',
+                        padding: '10px 12px',
+                        borderRadius: '8px',
                         border: '1px solid var(--theme-elevation-250, #D1D5DB)',
-                        fontSize: '14px',
+                        fontSize: '13px',
                         outline: 'none',
                         background: 'var(--theme-elevation-0, #FFFFFF)',
                         color: 'var(--theme-elevation-1000, #111827)',
@@ -360,89 +473,31 @@ export function AdminLoginUnifiedClient() {
                       autoFocus
                     />
                   </div>
-                </div>
 
-                <button
-                  type="submit"
-                  disabled={phoneLoading || phone.replace(/\D/g, '').length < 10}
-                  style={{
-                    padding: '12px 16px',
-                    borderRadius: '8px',
-                    border: 'none',
-                    background: '#15803D',
-                    color: '#FFFFFF',
-                    fontWeight: 700,
-                    fontSize: '14px',
-                    cursor: phoneLoading || phone.replace(/\D/g, '').length < 10 ? 'not-allowed' : 'pointer',
-                    opacity: phoneLoading || phone.replace(/\D/g, '').length < 10 ? 0.6 : 1,
-                    transition: 'background 0.15s ease',
-                  }}
-                >
-                  {phoneLoading ? 'Sending Verification Code...' : 'Send Verification Code →'}
-                </button>
-              </form>
-            )}
-
-            {phoneStep === 'otp' && (
-              <form onSubmit={handleVerifyOtp} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '12px', color: 'var(--theme-elevation-600, #6B7280)' }}>
-                    Sent to <strong>+91 {phone.replace(/\D/g, '').slice(-10)}</strong>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPhoneStep('phone')
-                      setOtp('')
-                      setPhoneError(null)
-                    }}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      padding: 0,
-                      fontSize: '12px',
-                      color: '#15803D',
-                      cursor: 'pointer',
-                      fontWeight: 600,
-                      textDecoration: 'underline',
-                    }}
-                  >
-                    Change Number
-                  </button>
-                </div>
-
-                {isNewUser && (
-                  <div
-                    style={{
-                      padding: '12px',
-                      background: 'var(--theme-elevation-50, #F9FAFB)',
-                      border: '1px solid var(--theme-elevation-200, #E5E7EB)',
-                      borderRadius: '8px',
-                    }}
-                  >
+                  <div>
                     <label
-                      htmlFor="admin-name"
+                      htmlFor="reg-email"
                       style={{
                         display: 'block',
                         fontSize: '12px',
                         fontWeight: 600,
-                        marginBottom: '6px',
+                        marginBottom: '4px',
                         color: 'var(--theme-elevation-800, #374151)',
                       }}
                     >
-                      Full Name
+                      Work Email
                     </label>
                     <input
-                      id="admin-name"
-                      type="text"
+                      id="reg-email"
+                      type="email"
                       required
-                      placeholder="e.g. Store Administrator"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
+                      placeholder="e.g. name@flavouritefood.com"
+                      value={regEmail}
+                      onChange={(e) => setRegEmail(e.target.value)}
                       style={{
                         width: '100%',
-                        padding: '9px 12px',
-                        borderRadius: '6px',
+                        padding: '10px 12px',
+                        borderRadius: '8px',
                         border: '1px solid var(--theme-elevation-250, #D1D5DB)',
                         fontSize: '13px',
                         outline: 'none',
@@ -451,268 +506,144 @@ export function AdminLoginUnifiedClient() {
                       }}
                     />
                   </div>
-                )}
 
-                <div>
-                  <label
-                    htmlFor="admin-otp"
-                    style={{
-                      display: 'block',
-                      fontSize: '13px',
-                      fontWeight: 600,
-                      marginBottom: '6px',
-                      color: 'var(--theme-elevation-800, #374151)',
-                    }}
-                  >
-                    6-Digit Verification Code
-                  </label>
-                  <input
-                    id="admin-otp"
-                    type="text"
-                    inputMode="numeric"
-                    required
-                    maxLength={6}
-                    placeholder="• • • • • •"
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      borderRadius: '8px',
-                      border: '1px solid var(--theme-elevation-250, #D1D5DB)',
-                      fontSize: '22px',
-                      fontWeight: 700,
-                      letterSpacing: '0.4em',
-                      textAlign: 'center',
-                      outline: 'none',
-                      background: 'var(--theme-elevation-0, #FFFFFF)',
-                      color: 'var(--theme-elevation-1000, #111827)',
-                    }}
-                    autoFocus
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={phoneLoading || otp.length !== 6 || (isNewUser && !name.trim())}
-                  style={{
-                    padding: '12px 16px',
-                    borderRadius: '8px',
-                    border: 'none',
-                    background: '#15803D',
-                    color: '#FFFFFF',
-                    fontWeight: 700,
-                    fontSize: '14px',
-                    cursor:
-                      phoneLoading || otp.length !== 6 || (isNewUser && !name.trim())
-                        ? 'not-allowed'
-                        : 'pointer',
-                    opacity: phoneLoading || otp.length !== 6 || (isNewUser && !name.trim()) ? 0.6 : 1,
-                    transition: 'background 0.15s ease',
-                  }}
-                >
-                  {phoneLoading ? 'Verifying...' : isNewUser ? 'Create Account & Sign In' : 'Verify & Sign In'}
-                </button>
-
-                <div style={{ textAlign: 'center', marginTop: '4px' }}>
-                  {resendTimer > 0 ? (
-                    <span style={{ fontSize: '12px', color: 'var(--theme-elevation-500, #9CA3AF)' }}>
-                      Resend code in {resendTimer}s
-                    </span>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => handleSendOtp()}
+                  <div>
+                    <label
+                      htmlFor="reg-phone"
                       style={{
-                        background: 'none',
-                        border: 'none',
-                        padding: 0,
+                        display: 'block',
                         fontSize: '12px',
-                        color: '#15803D',
-                        cursor: 'pointer',
                         fontWeight: 600,
-                        textDecoration: 'underline',
+                        marginBottom: '4px',
+                        color: 'var(--theme-elevation-800, #374151)',
                       }}
                     >
-                      Didn't receive code? Resend
-                    </button>
-                  )}
-                </div>
-              </form>
-            )}
+                      Mobile Number <span style={{ color: '#9CA3AF', fontWeight: 'normal' }}>(Optional)</span>
+                    </label>
+                    <input
+                      id="reg-phone"
+                      type="tel"
+                      placeholder="9876543210"
+                      maxLength={10}
+                      value={regPhone}
+                      onChange={(e) => setRegPhone(e.target.value.replace(/\D/g, ''))}
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        borderRadius: '8px',
+                        border: '1px solid var(--theme-elevation-250, #D1D5DB)',
+                        fontSize: '13px',
+                        outline: 'none',
+                        background: 'var(--theme-elevation-0, #FFFFFF)',
+                        color: 'var(--theme-elevation-1000, #111827)',
+                      }}
+                    />
+                  </div>
 
-            {phoneStep === 'pending' && (
-              <div
-                style={{
-                  padding: '16px',
-                  borderRadius: '8px',
-                  background: '#FFFBEB',
-                  border: '1px solid #FDE68A',
-                  color: '#92400E',
-                  fontSize: '13px',
-                  lineHeight: 1.5,
-                  textAlign: 'center',
-                }}
-              >
-                <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '6px' }}>
-                  Account Awaiting Approval
-                </div>
-                <p style={{ margin: '0 0 12px 0' }}>
-                  Your administrator account has been created. It is currently awaiting approval by the store owner in Settings → Staff & Admins.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPhoneStep('phone')
-                    setOtp('')
-                    setPhoneError(null)
-                  }}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    padding: 0,
-                    fontSize: '12px',
-                    color: '#92400E',
-                    cursor: 'pointer',
-                    fontWeight: 600,
-                    textDecoration: 'underline',
-                  }}
-                >
-                  Return to Login
-                </button>
+                  <div>
+                    <label
+                      htmlFor="reg-password"
+                      style={{
+                        display: 'block',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        marginBottom: '4px',
+                        color: 'var(--theme-elevation-800, #374151)',
+                      }}
+                    >
+                      Password <span style={{ color: '#9CA3AF', fontWeight: 'normal' }}>(Min. 8 characters)</span>
+                    </label>
+                    <input
+                      id="reg-password"
+                      type="password"
+                      required
+                      minLength={8}
+                      placeholder="••••••••••••"
+                      value={regPassword}
+                      onChange={(e) => setRegPassword(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        borderRadius: '8px',
+                        border: '1px solid var(--theme-elevation-250, #D1D5DB)',
+                        fontSize: '13px',
+                        outline: 'none',
+                        background: 'var(--theme-elevation-0, #FFFFFF)',
+                        color: 'var(--theme-elevation-1000, #111827)',
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="reg-role"
+                      style={{
+                        display: 'block',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        marginBottom: '4px',
+                        color: 'var(--theme-elevation-800, #374151)',
+                      }}
+                    >
+                      Role Requested
+                    </label>
+                    <select
+                      id="reg-role"
+                      value={regRole}
+                      onChange={(e) => setRegRole(e.target.value as 'staff' | 'admin')}
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        borderRadius: '8px',
+                        border: '1px solid var(--theme-elevation-250, #D1D5DB)',
+                        fontSize: '13px',
+                        outline: 'none',
+                        background: 'var(--theme-elevation-0, #FFFFFF)',
+                        color: 'var(--theme-elevation-1000, #111827)',
+                      }}
+                    >
+                      <option value="staff">👨‍🍳 Staff Member (Orders & Kitchen View)</option>
+                      <option value="admin">👑 Administrator (Full Store Access)</option>
+                    </select>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={regLoading || !regName || !regEmail || regPassword.length < 8}
+                    style={{
+                      marginTop: '6px',
+                      padding: '12px 16px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: '#15803D',
+                      color: '#FFFFFF',
+                      fontWeight: 700,
+                      fontSize: '14px',
+                      cursor: regLoading || !regName || !regEmail || regPassword.length < 8 ? 'not-allowed' : 'pointer',
+                      opacity: regLoading || !regName || !regEmail || regPassword.length < 8 ? 0.6 : 1,
+                      transition: 'background 0.15s ease',
+                    }}
+                  >
+                    {regLoading ? 'Registering Account...' : 'Request Staff Account →'}
+                  </button>
+                </form>
               </div>
             )}
           </div>
         )}
 
-        {/* TAB 2: Email & Password Login */}
-        {activeTab === 'email' && (
-          <form onSubmit={handleEmailLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {emailError && (
-              <div
-                style={{
-                  padding: '12px 14px',
-                  borderRadius: '8px',
-                  background: '#FEF2F2',
-                  border: '1px solid #FECACA',
-                  color: '#B91C1C',
-                  fontSize: '13px',
-                  lineHeight: 1.4,
-                }}
-              >
-                {emailError}
-              </div>
-            )}
-
-            <div>
-              <label
-                htmlFor="admin-email"
-                style={{
-                  display: 'block',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  marginBottom: '6px',
-                  color: 'var(--theme-elevation-800, #374151)',
-                }}
-              >
-                Email Address
-              </label>
-              <input
-                id="admin-email"
-                type="email"
-                required
-                autoComplete="email"
-                placeholder="admin@flavouritefood.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '11px 14px',
-                  borderRadius: '8px',
-                  border: '1px solid var(--theme-elevation-250, #D1D5DB)',
-                  fontSize: '14px',
-                  outline: 'none',
-                  background: 'var(--theme-elevation-0, #FFFFFF)',
-                  color: 'var(--theme-elevation-1000, #111827)',
-                }}
-                autoFocus
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="admin-password"
-                style={{
-                  display: 'block',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  marginBottom: '6px',
-                  color: 'var(--theme-elevation-800, #374151)',
-                }}
-              >
-                Password
-              </label>
-              <input
-                id="admin-password"
-                type="password"
-                required
-                autoComplete="current-password"
-                placeholder="••••••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '11px 14px',
-                  borderRadius: '8px',
-                  border: '1px solid var(--theme-elevation-250, #D1D5DB)',
-                  fontSize: '14px',
-                  outline: 'none',
-                  background: 'var(--theme-elevation-0, #FFFFFF)',
-                  color: 'var(--theme-elevation-1000, #111827)',
-                }}
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={emailLoading || !email || !password}
-              style={{
-                padding: '12px 16px',
-                borderRadius: '8px',
-                border: 'none',
-                background: '#15803D',
-                color: '#FFFFFF',
-                fontWeight: 700,
-                fontSize: '14px',
-                cursor: emailLoading || !email || !password ? 'not-allowed' : 'pointer',
-                opacity: emailLoading || !email || !password ? 0.6 : 1,
-                transition: 'background 0.15s ease',
-              }}
-            >
-              {emailLoading ? 'Signing In...' : 'Sign In with Password →'}
-            </button>
-          </form>
-        )}
-
-        {/* Footer */}
-        <div
-          style={{
-            marginTop: '24px',
-            paddingTop: '16px',
-            borderTop: '1px solid var(--theme-elevation-150, #E5E7EB)',
-            textAlign: 'center',
-            fontSize: '12px',
-          }}
-        >
+        {/* Back to Storefront Link */}
+        <div style={{ marginTop: '24px', textAlign: 'center' }}>
           <Link
             href="/"
             style={{
-              color: 'var(--theme-elevation-600, #6B7280)',
+              fontSize: '12px',
+              color: 'var(--theme-elevation-500, #6B7280)',
               textDecoration: 'none',
               fontWeight: 500,
             }}
           >
-            ← Return to Storefront
+            ← Back to Storefront
           </Link>
         </div>
       </div>
