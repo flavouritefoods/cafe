@@ -16,6 +16,16 @@ export async function GET(req: Request) {
     }
 
     const authToken = process.env.DATABASE_AUTH_TOKEN
+
+    // Optional cleanup of test accounts
+    const { searchParams } = new URL(req.url)
+    if (searchParams.get('cleanTest') === '1') {
+      const { createClient } = await import('@libsql/client')
+      const target = createClient({ url: targetUrl, authToken })
+      await target.execute({ sql: "DELETE FROM users WHERE email LIKE '%test%'", args: [] })
+      await target.execute({ sql: "DELETE FROM customers WHERE email LIKE '%test%'", args: [] })
+    }
+
     const result = await syncLocalDbToRemote(targetUrl, authToken)
 
     return NextResponse.json({
