@@ -4,6 +4,7 @@ import { getPayload } from 'payload'
 import configPromise from '@payload-config'
 import { pushOrderToShiprocket, getShiprocketSettings } from '@/lib/shiprocket'
 import { sendOrderConfirmationEmails } from '@/lib/email'
+import { sendTelegramOrderNotification } from '@/lib/telegram'
 
 export async function POST(req: Request) {
   try {
@@ -171,7 +172,7 @@ export async function POST(req: Request) {
       console.error('Non-fatal Shiprocket auto-push error:', srErr)
     }
 
-    // Automated Email Notifications (Customer invoice & Kitchen staff alert)
+    // Automated Notifications (Customer email invoice & Kitchen staff alert)
     try {
       const storeSettings: any = await payload.findGlobal({ slug: 'store-settings' })
       if (storeSettings && storeSettings.enableOrderEmails !== false) {
@@ -180,8 +181,14 @@ export async function POST(req: Request) {
           settings: storeSettings,
         })
       }
-    } catch (emailErr) {
-      console.error('Non-fatal order confirmation email error:', emailErr)
+      if (storeSettings && storeSettings.telegramAlertsActive !== false) {
+        await sendTelegramOrderNotification({
+          order: finalOrder,
+          settings: storeSettings,
+        })
+      }
+    } catch (notifyErr) {
+      console.error('Non-fatal order notification error:', notifyErr)
     }
 
     return NextResponse.json({

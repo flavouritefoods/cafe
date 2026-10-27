@@ -20,6 +20,11 @@ const Layout = ({ children }: { children: React.ReactNode }) => (
     importMap={importMap}
     serverFunction={serverFunction}
   >
+    <script
+      dangerouslySetInnerHTML={{
+        __html: `(function(){ try { document.documentElement.setAttribute('data-theme', 'light'); document.cookie = 'payload-theme=light; path=/; max-age=31536000'; } catch(e){} })();`,
+      }}
+    />
     {children}
   </RootLayout>
 )

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -26,7 +26,38 @@ import {
   Phone,
   CreditCard,
   Check,
+  Volume2,
+  VolumeX,
+  Bell,
 } from 'lucide-react'
+
+// Web Audio API Native Kitchen Chime (100% Free, zero MP3 downloads)
+function playKitchenChime() {
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext
+    if (!AudioContextClass) return
+    const ctx = new AudioContextClass()
+
+    const playTone = (freq: number, start: number, duration: number) => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = 'sine'
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + start)
+      gain.gain.setValueAtTime(0.25, ctx.currentTime + start)
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + duration)
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.start(ctx.currentTime + start)
+      osc.stop(ctx.currentTime + start + duration)
+    }
+
+    // Classic 2-tone "Ding-Dong" chime: 880Hz then 659.25Hz
+    playTone(880, 0, 0.35)
+    playTone(659.25, 0.22, 0.55)
+  } catch (err) {
+    console.warn('Audio chime warning:', err)
+  }
+}
 
 export function BakeryDashboard() {
   const router = useRouter()
@@ -36,6 +67,33 @@ export function BakeryDashboard() {
   const [backupSuccess, setBackupSuccess] = useState<string | null>(null)
   const [stats, setStats] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
+
+  // Audio Alerts State (Kitchen counter bell)
+  const [soundEnabled, setSoundEnabled] = useState(true)
+  const [newOrderAlert, setNewOrderAlert] = useState(false)
+  const prevNewCountRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('flavourite_kitchen_sound')
+      if (saved !== null) {
+        setSoundEnabled(saved === 'true')
+      }
+    } catch {}
+  }, [])
+
+  const toggleSound = () => {
+    setSoundEnabled((prev) => {
+      const next = !prev
+      try {
+        localStorage.setItem('flavourite_kitchen_sound', String(next))
+      } catch {}
+      if (next) {
+        playKitchenChime()
+      }
+      return next
+    })
+  }
 
   // Interactive controls
   const [revenuePeriod, setRevenuePeriod] = useState<'today' | 'month' | 'all'>('today')
@@ -57,6 +115,16 @@ export function BakeryDashboard() {
       if (res.ok && data.stats) {
         setStats(data.stats)
         setError(null)
+
+        // Check if any new orders arrived
+        const currentNewCount = data.stats?.statusCounts?.new || 0
+        if (prevNewCountRef.current !== null && currentNewCount > prevNewCountRef.current) {
+          if (soundEnabled) {
+            playKitchenChime()
+          }
+          setNewOrderAlert(true)
+        }
+        prevNewCountRef.current = currentNewCount
       } else {
         setError(data.error || 'Failed to load dashboard metrics')
       }
@@ -285,6 +353,52 @@ export function BakeryDashboard() {
         </div>
 
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' }}>
+          {/* Sound Alert Toggle */}
+          <button
+            type="button"
+            onClick={toggleSound}
+            title={soundEnabled ? 'Kitchen audio alert active (plays when new order arrives)' : 'Audio alert muted'}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: soundEnabled ? '#ECFDF5' : '#F3F4F6',
+              color: soundEnabled ? '#065F46' : '#6B7280',
+              border: soundEnabled ? '1px solid #A7F3D0' : '1px solid #D1D5DB',
+              borderRadius: '8px',
+              padding: '7px 11px',
+              fontSize: '0.78rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            {soundEnabled ? <Volume2 size={14} className="text-emerald-700" /> : <VolumeX size={14} />}
+            <span>{soundEnabled ? 'Bell: ON' : 'Bell: OFF'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => playKitchenChime()}
+            title="Test Kitchen Audio Chime"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              background: '#FFFFFF',
+              border: '1px solid #E5E7EB',
+              color: '#374151',
+              borderRadius: '8px',
+              padding: '7px 10px',
+              fontSize: '0.78rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            <Bell size={13} className="text-amber-600" />
+            <span>Test Sound</span>
+          </button>
+
           <div
             style={{
               background: '#FFFFFF',
@@ -322,6 +436,52 @@ export function BakeryDashboard() {
           </button>
         </div>
       </div>
+
+      {/* New Order Alert Banner */}
+      {newOrderAlert && (
+        <div
+          style={{
+            background: '#FEF3C7',
+            border: '2px solid #F59E0B',
+            color: '#92400E',
+            borderRadius: '12px',
+            padding: '12px 16px',
+            marginBottom: '1.25rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            boxShadow: '0 4px 14px rgba(245, 158, 11, 0.18)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '20px' }}>🔔</span>
+            <div>
+              <strong style={{ fontSize: '0.9rem' }}>New Bakery Order Received!</strong>
+              <p style={{ margin: 0, fontSize: '0.8rem', opacity: 0.9 }}>
+                The kitchen order queue has been updated automatically.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              setNewOrderAlert(false)
+              setOrderFilter('new')
+            }}
+            style={{
+              background: '#B45309',
+              color: '#FFFFFF',
+              border: 'none',
+              borderRadius: '6px',
+              padding: '7px 14px',
+              fontSize: '0.8rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            View in Queue →
+          </button>
+        </div>
+      )}
 
       {error && (
         <div

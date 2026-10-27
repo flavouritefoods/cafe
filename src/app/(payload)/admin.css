@@ -9,6 +9,55 @@
 }
 
 /* ==========================================================================
+   STRICT LIGHT MODE ENFORCEMENT
+   Prevent any dark-mode glitching across Payload Admin
+   ========================================================================== */
+html,
+body,
+:root,
+[data-theme='dark'],
+[data-theme='light'] {
+  color-scheme: light !important;
+}
+
+/* Force all dark mode variables back to clean light mode */
+html[data-theme='dark'],
+body[data-theme='dark'],
+[data-theme='dark'] {
+  --theme-bg: #F9FAFB !important;
+  --theme-elevation-0: #FFFFFF !important;
+  --theme-elevation-50: #F9FAFB !important;
+  --theme-elevation-100: #F3F4F6 !important;
+  --theme-elevation-150: #E5E7EB !important;
+  --theme-elevation-200: #E5E7EB !important;
+  --theme-elevation-250: #D1D5DB !important;
+  --theme-elevation-300: #D1D5DB !important;
+  --theme-elevation-400: #9CA3AF !important;
+  --theme-elevation-500: #6B7280 !important;
+  --theme-elevation-600: #4B5563 !important;
+  --theme-elevation-700: #374151 !important;
+  --theme-elevation-800: #1F2937 !important;
+  --theme-elevation-900: #111827 !important;
+  --theme-elevation-1000: #000000 !important;
+  --theme-text: #111827 !important;
+  --theme-input-bg: #FFFFFF !important;
+  --theme-border-color: #E5E7EB !important;
+  background-color: #F9FAFB !important;
+  color: #111827 !important;
+}
+
+/* Ensure template wrapper and dashboard canvas are always clean light background */
+.template-default,
+.app-header,
+.dashboard,
+.collection-list,
+.doc-header,
+.collection-edit {
+  background-color: #F9FAFB !important;
+  color: #111827 !important;
+}
+
+/* ==========================================================================
    1. Modern Clean Side Navigation
    ========================================================================== */
 .nav,

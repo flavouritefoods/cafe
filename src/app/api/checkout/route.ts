@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { getPayload } from 'payload'
 import configPromise from '@payload-config'
+import { sendOrderConfirmationEmails } from '@/lib/email'
+import { sendTelegramOrderNotification } from '@/lib/telegram'
 
 export async function POST(req: Request) {
   try {
@@ -44,7 +46,7 @@ export async function POST(req: Request) {
       data: {
         orderNumber,
         orderStatus: 'new',
-        paymentStatus: 'pending',
+        paymentStatus: paymentMethod === 'cod' ? 'pending' : 'pending',
         customerName,
         customerPhone,
         customerEmail: customerEmail || undefined,
@@ -67,6 +69,25 @@ export async function POST(req: Request) {
         paymentMethod,
       },
     })
+
+    // Trigger free email & telegram notifications
+    try {
+      const storeSettings: any = await payload.findGlobal({ slug: 'store-settings' })
+      if (storeSettings && storeSettings.enableOrderEmails !== false) {
+        await sendOrderConfirmationEmails({
+          order,
+          settings: storeSettings,
+        })
+      }
+      if (storeSettings && storeSettings.telegramAlertsActive !== false) {
+        await sendTelegramOrderNotification({
+          order,
+          settings: storeSettings,
+        })
+      }
+    } catch (notifyErr) {
+      console.warn('Non-fatal notification error in checkout:', notifyErr)
+    }
 
     return NextResponse.json({
       success: true,

@@ -235,6 +235,36 @@ export const StoreSettings: GlobalConfig = {
           ],
         },
         {
+          label: '📢 Free Order Alerts (Telegram Bot)',
+          fields: [
+            {
+              name: 'telegramAlertsActive',
+              type: 'checkbox',
+              defaultValue: true,
+              label: 'Enable Instant Telegram Push Alerts (100% Free)',
+              admin: {
+                description: 'Sends instant alerts with item list, customer phone, and address to your Telegram staff group whenever an order is placed.',
+              },
+            },
+            {
+              name: 'telegramBotToken',
+              type: 'text',
+              label: 'Telegram Bot Token',
+              admin: {
+                description: 'Token from @BotFather in Telegram (e.g. 123456789:ABCdefGHIjklMNOpqrsTUVwxyz). Unlimited free messages forever.',
+              },
+            },
+            {
+              name: 'telegramChatId',
+              type: 'text',
+              label: 'Telegram Chat / Group ID',
+              admin: {
+                description: 'Your Telegram personal chat ID or staff group ID (e.g. -1001234567890 or 987654321).',
+              },
+            },
+          ],
+        },
+        {
           label: '📱 SMS & Mobile OTP Gateway',
           fields: [
             {

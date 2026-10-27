@@ -37,6 +37,7 @@ if (process.env.VERCEL && (!process.env.DATABASE_URI || process.env.DATABASE_URI
 
 export default buildConfig({
   admin: {
+    theme: 'light',
     user: Users.slug,
     meta: {
       titleSuffix: '• Flavourite Bakery Admin',
@@ -46,7 +47,19 @@ export default buildConfig({
       beforeNavLinks: ['@/components/admin/AdminNavHeader#AdminNavHeader'],
     },
     livePreview: {
-      url: 'http://localhost:3000',
+      url: ({ data, collectionConfig }) => {
+        const baseUrl =
+          process.env.NEXT_PUBLIC_SERVER_URL || 'https://www.flavouritefood.com'
+
+        const slug = collectionConfig?.slug
+        if (slug === 'products' && data?.slug) {
+          return `${baseUrl}/product/${data.slug}`
+        }
+        if (slug === 'categories' && data?.slug) {
+          return `${baseUrl}/shop?category=${data.slug}`
+        }
+        return baseUrl
+      },
       collections: ['banners', 'categories', 'products'],
       breakpoints: [
         { label: 'Mobile', name: 'mobile', width: 375, height: 667 },
