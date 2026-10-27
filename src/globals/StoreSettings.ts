@@ -9,6 +9,10 @@ export const StoreSettings: GlobalConfig = {
   },
   access: {
     read: () => true,
+    update: ({ req }) => {
+      if (!req.user) return false
+      return !req.user.status || req.user.status === 'approved'
+    },
   },
   fields: [
     {
@@ -86,6 +90,95 @@ export const StoreSettings: GlobalConfig = {
                   label: 'Optional Highlight Badge',
                   admin: {
                     description: 'Small highlight tag next to text (e.g. "New", "Hot", "Festive", "Diwali")',
+                  },
+                },
+              ],
+            },
+          ],
+        },
+        {
+          label: '🖼️ Hero Banners Carousel',
+          fields: [
+            {
+              name: 'heroBanners',
+              type: 'array',
+              label: 'Homepage Hero Carousel Slides',
+              labels: {
+                singular: 'Banner Slide',
+                plural: 'Banner Slides',
+              },
+              admin: {
+                description: 'Manage homepage hero carousel banners directly here alongside store settings. Add, reorder, or edit slides without leaving this page.',
+              },
+              fields: [
+                {
+                  name: 'title',
+                  type: 'text',
+                  required: true,
+                  label: 'Headline Title',
+                  admin: {
+                    description: 'Main headline for the banner (e.g. "Diwali Special Handcrafted Hampers", "Fresh Sourdough Breads").',
+                  },
+                },
+                {
+                  name: 'description',
+                  type: 'textarea',
+                  label: 'Subtitle / Highlight',
+                  admin: {
+                    description: 'Short promotional offer or highlight subtitle.',
+                  },
+                },
+                {
+                  type: 'row',
+                  fields: [
+                    {
+                      name: 'buttonText',
+                      type: 'text',
+                      label: 'Button Label',
+                      admin: {
+                        width: '50%',
+                        description: 'e.g. "Shop Hampers", "Explore Cakes"',
+                      },
+                    },
+                    {
+                      name: 'buttonLink',
+                      type: 'text',
+                      label: 'Button Destination',
+                      admin: {
+                        width: '50%',
+                        description: 'e.g. "/shop?category=hampers", "/shop"',
+                      },
+                    },
+                  ],
+                },
+                {
+                  name: 'image',
+                  type: 'upload',
+                  relationTo: 'media',
+                  label: 'Banner Background Photo',
+                  admin: {
+                    description: 'Upload banner background photo.',
+                  },
+                },
+                {
+                  name: 'colorTheme',
+                  type: 'text',
+                  defaultValue: '#FDFBF7',
+                  label: 'Theme Background Color',
+                  admin: {
+                    description: 'Section theme background color.',
+                    components: {
+                      Field: '@/components/ColorPicker#ColorPicker',
+                    },
+                  },
+                },
+                {
+                  name: 'isActive',
+                  type: 'checkbox',
+                  defaultValue: true,
+                  label: 'Show on Live Website',
+                  admin: {
+                    description: 'Toggle on to display this banner on the live website.',
                   },
                 },
               ],

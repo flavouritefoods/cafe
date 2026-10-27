@@ -70,6 +70,24 @@ export default buildConfig({
   },
   collections: [Users, Customers, Media, Categories, Products, Banners, Orders],
   globals: [StoreSettings],
+  onInit: async (payload) => {
+    try {
+      const existing = await payload.findGlobal({ slug: 'store-settings' }).catch(() => null)
+      if (!existing) {
+        await payload.updateGlobal({
+          slug: 'store-settings',
+          data: {
+            storeName: 'Flavourite Cafe & Bakery',
+            announcementBarActive: true,
+            announcementBarText: '🌿 100% Vegetarian Artisanal Goodies • Handcrafted in Samalkot • Pan-India Courier Available!',
+          },
+        })
+        console.log('[onInit] Initialized default StoreSettings.')
+      }
+    } catch (err) {
+      console.warn('[onInit] StoreSettings check note:', err)
+    }
+  },
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || 'secret-key-for-local-dev-flavourite-cafe-2026',
   typescript: {

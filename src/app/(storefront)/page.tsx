@@ -25,11 +25,22 @@ async function getHomepageData() {
   try {
     const payload = await getPayload({ config })
     
-    const [banners, categories, bestSellersResult] = await Promise.all([
+    const [banners, categories, bestSellersResult, storeSettings] = await Promise.all([
       payload.find({ collection: 'banners', where: { isActive: { equals: true } }, limit: 20, sort: 'createdAt' }),
       payload.find({ collection: 'categories', limit: 10, sort: 'title' }),
       payload.find({ collection: 'products', where: { isBestSeller: { equals: true } }, limit: 4 }),
+      payload.findGlobal({ slug: 'store-settings' }).catch(() => null),
     ])
+
+    // Prioritize banners configured directly in Store Settings if present
+    const settingsBanners = (storeSettings as any)?.heroBanners
+    let activeBanners: any[] = []
+    if (Array.isArray(settingsBanners) && settingsBanners.length > 0) {
+      activeBanners = settingsBanners.filter((b: any) => b.isActive !== false)
+    }
+    if (activeBanners.length === 0) {
+      activeBanners = banners.docs
+    }
     
     // If no best sellers are flagged yet, show latest 4 products
     let bestSellers = bestSellersResult.docs
@@ -39,7 +50,7 @@ async function getHomepageData() {
     }
     
     return {
-      banners: banners.docs,
+      banners: activeBanners,
       categories: categories.docs,
       bestSellers,
     }

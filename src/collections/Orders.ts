@@ -18,7 +18,132 @@ export const Orders: CollectionConfig = {
     update: ({ req: { user } }) => Boolean(user), // Authenticated staff only
     delete: ({ req: { user } }) => Boolean(user),
   },
+  hooks: {
+    beforeChange: [
+      async ({ data, originalDoc, req, operation }) => {
+        if (operation === 'update' && originalDoc) {
+          const changes: string[] = []
+
+          // Detect status changes
+          if (data.orderStatus && data.orderStatus !== originalDoc.orderStatus) {
+            changes.push(`Order Status: "${originalDoc.orderStatus}" → "${data.orderStatus}"`)
+          }
+          if (data.paymentStatus && data.paymentStatus !== originalDoc.paymentStatus) {
+            changes.push(`Payment Status: "${originalDoc.paymentStatus}" → "${data.paymentStatus}"`)
+          }
+
+          // Detect billing changes
+          if (data.total !== undefined && Number(data.total) !== Number(originalDoc.total)) {
+            changes.push(`Grand Total: ₹${originalDoc.total} → ₹${data.total}`)
+          }
+          if (data.subtotal !== undefined && Number(data.subtotal) !== Number(originalDoc.subtotal)) {
+            changes.push(`Subtotal: ₹${originalDoc.subtotal} → ₹${data.subtotal}`)
+          }
+          if (data.shipping !== undefined && Number(data.shipping) !== Number(originalDoc.shipping)) {
+            changes.push(`Delivery Fee: ₹${originalDoc.shipping} → ₹${data.shipping}`)
+          }
+
+          // Detect customer & delivery details changes
+          if (data.customerName && data.customerName !== originalDoc.customerName) {
+            changes.push(`Customer Name: "${originalDoc.customerName}" → "${data.customerName}"`)
+          }
+          if (data.customerPhone && data.customerPhone !== originalDoc.customerPhone) {
+            changes.push(`Customer Phone: "${originalDoc.customerPhone}" → "${data.customerPhone}"`)
+          }
+          if (data.customerEmail && data.customerEmail !== originalDoc.customerEmail) {
+            changes.push(`Customer Email: "${originalDoc.customerEmail}" → "${data.customerEmail}"`)
+          }
+          if (data.deliveryAddress && data.deliveryAddress !== originalDoc.deliveryAddress) {
+            changes.push(`Delivery Address updated`)
+          }
+          if (data.pincode && data.pincode !== originalDoc.pincode) {
+            changes.push(`Pincode: "${originalDoc.pincode}" → "${data.pincode}"`)
+          }
+          if (data.deliverySlot && data.deliverySlot !== originalDoc.deliverySlot) {
+            changes.push(`Delivery Slot: "${originalDoc.deliverySlot}" → "${data.deliverySlot}"`)
+          }
+          if (data.deliveryDate && data.deliveryDate !== originalDoc.deliveryDate) {
+            changes.push(`Delivery Date: "${originalDoc.deliveryDate}" → "${data.deliveryDate}"`)
+          }
+
+          // Detect courier tracking updates
+          if (data.courierName && data.courierName !== originalDoc.courierName) {
+            changes.push(`Courier: "${originalDoc.courierName || 'None'}" → "${data.courierName}"`)
+          }
+          if (data.awbCode && data.awbCode !== originalDoc.awbCode) {
+            changes.push(`AWB Tracking Code: "${originalDoc.awbCode || 'None'}" → "${data.awbCode}"`)
+          }
+          if (data.trackingUrl && data.trackingUrl !== originalDoc.trackingUrl) {
+            changes.push(`Tracking URL updated`)
+          }
+
+          // Detect notes updates
+          if (data.adminNotes !== undefined && data.adminNotes !== originalDoc.adminNotes) {
+            changes.push(`Kitchen Admin Notes modified`)
+          }
+          if (data.specialInstructions !== undefined && data.specialInstructions !== originalDoc.specialInstructions) {
+            changes.push(`Customer Special Instructions modified`)
+          }
+
+          // Record audit log entry if any meaningful change was made
+          if (changes.length > 0) {
+            const userName = req?.user?.name || req?.user?.email || 'Authorized Staff'
+            const userEmail = req?.user?.email || 'system'
+            const userRole = (req?.user as any)?.role === 'admin' ? '👑 Administrator' : '👨‍🍳 Staff'
+
+            const now = new Date()
+            const dateStr = now.toLocaleString('en-IN', {
+              timeZone: 'Asia/Kolkata',
+              dateStyle: 'medium',
+              timeStyle: 'short',
+            })
+
+            const logEntry = {
+              editedBy: `${userName} (${userEmail})`,
+              editedAt: `${dateStr} IST`,
+              role: userRole,
+              reason: data.lastEditReason?.trim() || 'Direct order details update',
+              changes: changes.join('\n• '),
+            }
+
+            const existingHistory = Array.isArray(originalDoc.auditLog) ? originalDoc.auditLog : []
+            data.auditLog = [logEntry, ...existingHistory]
+          }
+
+          // Automatically lock the order back in protected mode after saving
+          data.isLocked = true
+          data.lastEditReason = ''
+        }
+
+        return data
+      },
+    ],
+  },
   fields: [
+    {
+      name: 'orderLockControls',
+      type: 'ui',
+      admin: {
+        components: {
+          Field: '@/components/admin/OrderLockBanner#OrderLockBanner',
+        },
+      },
+    },
+    {
+      name: 'isLocked',
+      type: 'checkbox',
+      defaultValue: true,
+      admin: {
+        hidden: true,
+      },
+    },
+    {
+      name: 'lastEditReason',
+      type: 'text',
+      admin: {
+        hidden: true,
+      },
+    },
     {
       name: 'orderNumber',
       type: 'text',
@@ -330,6 +455,45 @@ export const Orders: CollectionConfig = {
               admin: {
                 description: 'Private kitchen reminders (e.g. "Sent with Dunzo runner Suresh", "Customer called to request 4pm delivery").',
               },
+            },
+          ],
+        },
+        {
+          label: '📜 Order Audit & Activity Log',
+          description: 'Traceable history of all staff edits, status updates, and notes with timestamps and staff names.',
+          fields: [
+            {
+              name: 'auditLog',
+              type: 'array',
+              label: 'Audit & Edit History Entries',
+              labels: {
+                singular: 'Edit Entry',
+                plural: 'Edit Entries',
+              },
+              admin: {
+                readOnly: true,
+                description: 'Chronological activity log recorded automatically whenever an order is unlocked and updated by staff.',
+              },
+              fields: [
+                {
+                  type: 'row',
+                  fields: [
+                    { name: 'editedBy', type: 'text', admin: { width: '40%', description: 'Staff Name & Email' } },
+                    { name: 'editedAt', type: 'text', admin: { width: '30%', description: 'Date & Time' } },
+                    { name: 'role', type: 'text', admin: { width: '30%', description: 'Role' } },
+                  ],
+                },
+                {
+                  name: 'reason',
+                  type: 'text',
+                  admin: { description: 'Reason for edit' },
+                },
+                {
+                  name: 'changes',
+                  type: 'textarea',
+                  admin: { description: 'Specific fields changed' },
+                },
+              ],
             },
           ],
         },
