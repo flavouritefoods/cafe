@@ -2,8 +2,6 @@
 import type { Metadata } from 'next'
 import config from '@payload-config'
 import { RootPage, generatePageMetadata } from '@payloadcms/next/views'
-import { cookies } from 'next/headers'
-import { redirect } from 'next/navigation'
 import { importMap } from '../importMap'
 import { AdminLoginUnifiedClient } from '../login/AdminLoginUnifiedClient'
 
@@ -33,12 +31,9 @@ const Page = async ({ params, searchParams }: Args) => {
   const segment = resolvedParams?.segments?.[0]
 
   // Intercept the /admin/login route to present the unified Mobile OTP + Email login portal
+  // DO NOT blindly redirect based on cookie presence here to prevent infinite redirect loops
+  // with Payload's server session validator when cookies expire or become invalid.
   if (segment === 'login') {
-    const cookieStore = await cookies()
-    const token = cookieStore.get('payload-token')?.value
-    if (token) {
-      redirect('/admin')
-    }
     return <AdminLoginUnifiedClient />
   }
 
